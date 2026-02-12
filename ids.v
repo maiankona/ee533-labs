@@ -1,3 +1,17 @@
+///////////////////////////////////////////////////////////////////////////////
+// vim:set shiftwidth=3 softtabstop=3 expandtab:
+//
+//
+// Module: ids.v
+// Project: NF2.1
+// Description: Defines a simple ids module for the user data path.  The
+// modules reads a 64-bit register that contains a pattern to match and
+// counts how many packets match.  The register contents are 7 bytes of
+// pattern and one byte of mask.  The mask bits are set to one for each
+// byte of the pattern that should be included in the mask -- zero bits
+// mean "don't care".
+//
+///////////////////////////////////////////////////////////////////////////////
 `timescale 1ns/1ps
 
 module ids
@@ -32,95 +46,83 @@ module ids
       output  [`CPCI_NF2_DATA_WIDTH-1:0]  reg_data_out,
       output  [UDP_REG_SRC_WIDTH-1:0]     reg_src_out,
 
+      // misc
       input                                reset,
       input                                clk,
-
-      output [DATA_WIDTH-1:0]              ILA_out
+		
+		// Integrated Logic Analyzer
+		output [DATA_WIDTH-1:0]				 ILA_out
    );
 
-   // ---------------- Internal Signals ----------------
+   // Define the log2 function
+   // `LOG2_FUNC
 
-   wire [DATA_WIDTH-1:0]  in_fifo_data;
-   wire [CTRL_WIDTH-1:0]  in_fifo_ctrl;
-   wire                   in_fifo_nearly_full;
-   wire                   in_fifo_empty;
+   //------------------------- Signals-------------------------------
+	
+   wire [DATA_WIDTH-1:0]         in_fifo_data;
+   wire [CTRL_WIDTH-1:0]         in_fifo_ctrl;
 
-   reg                    in_fifo_rd_en;
-   reg                    out_wr_int;
+   wire                          in_fifo_nearly_full;
+   wire                          in_fifo_empty;
 
-   // Software registers
-   wire [31:0] pattern_high;
-   wire [31:0] pattern_low;
-   wire [31:0] ids_cmd;
+	// For Logic Analyzer
+	reg									ILA_rd;
+	wire									ILA_empty;
+	wire [DATA_WIDTH-1:0]				 ILA_in;
+	wire								 ILA_wr;
 
-   // Hardware registers
-   reg [31:0] matches;
-   reg [63:0] ILA_data;
+   reg                           in_fifo_rd_en;
+   reg                           out_wr_int;
 
-   // ILA signals
-   wire [DATA_WIDTH-1:0] ILA_in;
-   wire                  ILA_wr;
-   reg                   ILA_rd;
-   wire                  ILA_empty;
+   // software registers 
+   wire [31:0]                   pattern_high;
+   wire [31:0]                   pattern_low;
+   wire [31:0]                   ids_cmd;
+   // hardware registers
+   reg [31:0]                    matches;
+	reg [63:0]							ILA_data; 	// For Logic Analyzer
+	
 
-   // FSM
-   reg [1:0] state, state_next;
-   reg [31:0] matches_next;
-   reg in_pkt_body, in_pkt_body_next;
-   reg end_of_pkt, end_of_pkt_next;
-   reg begin_pkt, begin_pkt_next;
-   reg [2:0] header_counter, header_counter_next;
+   // internal state
+   reg [1:0]                     state, state_next;
+   reg [31:0]                    matches_next;
+   reg                           in_pkt_body, in_pkt_body_next;
+   reg                           end_of_pkt, end_of_pkt_next;
+   reg                           begin_pkt, begin_pkt_next;
+   reg [2:0]                     header_counter, header_counter_next;
+   reg                           counter;
 
-   parameter START   = 2'b00;
-   parameter HEADER  = 2'b01;
-   parameter PAYLOAD = 2'b10;
+   // local parameter
+   parameter                     START = 2'b00;
+   parameter                     HEADER = 2'b01;
+   parameter                     PAYLOAD = 2'b10;
+   // parameter                  EMPTY = 4'b0001;
+   // parameter                  FILLING = 4'b0010;
+   // parameter                  FULL = 4'b0100;
+   // parameter                  DRAINING = 4'b1000;
+ 
+   //------------------------- Local assignments -------------------------------
 
-   // ---------------- Assignments ----------------
-
-   assign in_rdy = !in_fifo_nearly_full;
-
-   wire matcher_match;
-   wire matcher_en;
-   wire matcher_ce;
-   wire matcher_reset;
-
-   assign matcher_en    = in_pkt_body;
-   assign matcher_ce    = (!in_fifo_empty && out_rdy);
+   assign in_rdy     = !in_fifo_nearly_full;
+   assign matcher_en = in_pkt_body;
+   assign matcher_ce = (!in_fifo_empty && out_rdy);
    assign matcher_reset = (reset || ids_cmd[0] || end_of_pkt);
 
-   // ================= ILA CORRECT FIFO USAGE =================
+	// --- Logic Analyzer
+	//Currently monitoring input FIFO (post-input FIFO datapath)
 
-   // Tap post-FIFO datapath
-   assign ILA_in = in_fifo_data;
+	assign ILA_wr = in_fifo_rd_en;	 //Currently monitoring input FIFO
+	assign ILA_in = in_fifo_data;   //Currently monitoring input FIFO
 
-   // Write only when IDS consumes a word
-   assign ILA_wr = in_fifo_rd_en;
-
-   // Drain FIFO whenever data exists
-   always @(posedge clk) begin
-      if (reset)
-         ILA_rd <= 1'b0;
-      else
-         ILA_rd <= !ILA_empty;
-   end
-
-   // Latch read data
-   always @(posedge clk) begin
-      if (reset)
-         ILA_data <= 64'b0;
-      else if (ILA_rd)
-         ILA_data <= ILA_out;
-   end
-
-   // ---------------- Input FIFO ----------------
+   //------------------------- Modules-------------------------------
 
    fallthrough_small_fifo #(
       .WIDTH(CTRL_WIDTH+DATA_WIDTH),
       .MAX_DEPTH_BITS(2)
    ) input_fifo (
-      .din           ({in_ctrl, in_data}),
-      .wr_en         (in_wr),
-      .rd_en         (in_fifo_rd_en),
+      .din           ({in_ctrl, in_data}),   // Data in
+      .wr_en         (in_wr),                // Write enable
+      .rd_en         (in_fifo_rd_en),        // Read the next word 
       .dout          ({in_fifo_ctrl, in_fifo_data}),
       .full          (),
       .nearly_full   (in_fifo_nearly_full),
@@ -129,42 +131,38 @@ module ids
       .clk           (clk)
    );
 
-   // ---------------- Pattern Matcher ----------------
-
    detect7B matcher (
-      .ce        (matcher_ce),
-      .match_en  (matcher_en),
-      .clk       (clk),
-      .pipe1     ({in_ctrl, in_data}),
-      .hwregA    ({pattern_high, pattern_low}),
-      .match     (matcher_match),
-      .mrst      (matcher_reset)
+      .ce            (matcher_ce),           // data enable
+      .match_en      (matcher_en),           // match enable
+      .clk           (clk),
+      .pipe1         ({in_ctrl, in_data}),   // Data in
+      .hwregA        ({pattern_high, pattern_low}),   // pattern in
+      .match         (matcher_match),        // match out
+      .mrst          (matcher_reset)         // reset in
    );
-
-   // ---------------- Drop FIFO ----------------
 
    dropfifo drop_fifo (
-      .clk        (clk), 
-      .drop_pkt   (matcher_match && end_of_pkt), 
-      .fiforead   (out_rdy), 
-      .fifowrite  (out_wr_int), 
-      .firstword  (begin_pkt), 
-      .in_fifo    ({in_fifo_ctrl,in_fifo_data}), 
-      .lastword   (end_of_pkt), 
-      .rst        (reset), 
-      .out_fifo   ({out_ctrl,out_data}), 
-      .valid_data (out_wr)
+      .clk           (clk), 
+      .drop_pkt      (matcher_match && end_of_pkt), 
+      .fiforead      (out_rdy), 
+      .fifowrite     (out_wr_int), 
+      .firstword     (begin_pkt), 
+      .in_fifo       ({in_fifo_ctrl,in_fifo_data}), 
+      .lastword      (end_of_pkt), 
+      .rst           (reset), 
+      .out_fifo      ({out_ctrl,out_data}), 
+      .valid_data    (out_wr)
    );
+   
 
-   // ---------------- Register Block ----------------
-
-   generic_regs #(
+   generic_regs
+   #( 
       .UDP_REG_SRC_WIDTH   (UDP_REG_SRC_WIDTH),
-      .TAG                 (`IDS_BLOCK_ADDR),
-      .REG_ADDR_WIDTH      (`IDS_REG_ADDR_WIDTH),
-      .NUM_COUNTERS        (0),
-      .NUM_SOFTWARE_REGS   (3),
-      .NUM_HARDWARE_REGS   (3)
+      .TAG                 (`IDS_BLOCK_ADDR),          
+      .REG_ADDR_WIDTH      (`IDS_REG_ADDR_WIDTH),     
+      .NUM_COUNTERS        (0),                 
+      .NUM_SOFTWARE_REGS   (3),                 
+      .NUM_HARDWARE_REGS   (3)                  
    ) module_regs (
       .reg_req_in       (reg_req_in),
       .reg_ack_in       (reg_ack_in),
@@ -180,34 +178,36 @@ module ids
       .reg_data_out     (reg_data_out),
       .reg_src_out      (reg_src_out),
 
+      // --- counters interface
       .counter_updates  (),
       .counter_decrement(),
 
+      // --- SW regs interface
       .software_regs    ({ids_cmd,pattern_low,pattern_high}),
 
-      // Correct reversed order mapping
-      .hardware_regs    ({ILA_data[63:32], ILA_data[31:0], matches}),
+      // --- HW regs interface
+      .hardware_regs    ({ILA_data[63:32],ILA_data[31:0],matches}),
 
       .clk              (clk),
       .reset            (reset)
-   );
+    );
+	 
+	 		// --- Logic Analyzer
+		
+		ILA ILA0 (
+		.clk(clk),
+		.reset(reset),
+		.data_in(ILA_in),
+		.wen(ILA_wr),
+		.ren(ILA_rd),
+		.data_out(ILA_out),
+		.depth(),
+		.empty(ILA_empty),
+		.full()	
+		);
 
-   // ---------------- ILA FIFO Instance ----------------
-
-   ILA ILA0 (
-      .clk      (clk),
-      .reset    (reset),
-      .data_in  (ILA_in),
-      .wen      (ILA_wr),
-      .ren      (ILA_rd),
-      .data_out (ILA_out),
-      .depth    (),
-      .empty    (ILA_empty),
-      .full     ()
-   );
-
-   // ---------------- FSM Logic ----------------
-
+   //------------------------- Logic-------------------------------
+   
    always @(*) begin
       state_next = state;
       matches_next = matches;
@@ -218,28 +218,29 @@ module ids
       in_pkt_body_next = in_pkt_body;
       begin_pkt_next = begin_pkt;
 
+      if (!ILA_empty)
+         ILA_rd = 1;  // Drain FIFO whenever data exists
+		
       if (!in_fifo_empty && out_rdy) begin
          out_wr_int = 1;
          in_fifo_rd_en = 1;
-
+         
          case(state)
             START: begin
-               if (in_fifo_ctrl != 0) begin
+              if (in_fifo_ctrl != 0) begin
                   state_next = HEADER;
                   begin_pkt_next = 1;
                   end_of_pkt_next = 0;
                end
             end
-
             HEADER: begin
                begin_pkt_next = 0;
                if (in_fifo_ctrl == 0) begin
                   header_counter_next = header_counter + 1'b1;
                   if (header_counter_next == 3)
-                     state_next = PAYLOAD;
+                    state_next = PAYLOAD;
                end
             end
-
             PAYLOAD: begin
                if (in_fifo_ctrl != 0) begin
                   state_next = START;
@@ -255,9 +256,7 @@ module ids
          endcase
       end
    end
-
-   // ---------------- Sequential FSM ----------------
-
+   
    always @(posedge clk) begin
       if(reset) begin
          matches <= 0;
@@ -266,19 +265,22 @@ module ids
          begin_pkt <= 0;
          end_of_pkt <= 0;
          in_pkt_body <= 0;
+			ILA_data <= 0;	// Initialize the ILA data output to zeros
       end
       else begin
-         if (ids_cmd[0])
-            matches <= 0;
-         else
-            matches <= matches_next;
+         if (ids_cmd[0]) matches <= 0;
+         else matches <= matches_next;
+
+			if (ILA_rd) 
+            ILA_data <= ILA_out;	//Only update the data when the read signal is valid
 
          header_counter <= header_counter_next;
          state <= state_next;
          begin_pkt <= begin_pkt_next;
          end_of_pkt <= end_of_pkt_next;
          in_pkt_body <= in_pkt_body_next;
+			counter <= 0;
       end
-   end
+   end   
 
 endmodule
