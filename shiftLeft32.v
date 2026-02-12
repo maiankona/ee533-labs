@@ -22,8 +22,9 @@
     assign y = sel ? b : a;
 endmodule*/
 
+
 // slow ahh shifter... worst case runtime O(n^5) 
-module shiftLeft32(input wire clk, input wire [31:0] A, input wire [4:0] shift_by, output reg [31:0] Y);
+module shiftLeft32(input wire [31:0] A, input wire [4:0] shift_by, output [31:0] Y);
 
     wire [31:0] s1, s2, s4, s8, s16;
     genvar i;
