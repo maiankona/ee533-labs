@@ -16,7 +16,7 @@ module alu_32bit(
 	bitwiseXNOR32 zut(.a(A), .b(B), .y(xnor_result));
 	bitwiseXOR32 xut(.a(A), .b(B), .y(xor_result));
 	shiftLeft32 sL(.A(A), .shift_by(shift), .Y(sL_result));
-	shiftRight32 sL(.A(A), .shift_by(shift), .Y(sR_result));
+	shiftRight32 sR(.A(A), .shift_by(shift), .Y(sR_result));
 	
     always @(posedge clk or posedge reset) begin
         if (reset) begin
@@ -41,3 +41,4 @@ module alu_32bit(
     end
 
 endmodule
+
