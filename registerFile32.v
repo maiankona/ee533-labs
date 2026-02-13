@@ -20,51 +20,17 @@
 //
 `timescale 1ns / 1ps
 
-module D2_4E_MXILINX_registerFile32(A0, 
-                                    A1, 
-                                    E, 
-                                    D0, 
-                                    D1, 
-                                    D2, 
-                                    D3);
-
-    input A0;
-    input A1;
-    input E;
-   output D0;
-   output D1;
-   output D2;
-   output D3;
-   
-   
-   AND3 I_36_30 (.I0(A1), 
-                 .I1(A0), 
-                 .I2(E), 
-                 .O(D3));
-   AND3B1 I_36_31 (.I0(A0), 
-                   .I1(A1), 
-                   .I2(E), 
-                   .O(D2));
-   AND3B1 I_36_32 (.I0(A1), 
-                   .I1(A0), 
-                   .I2(E), 
-                   .O(D1));
-   AND3B2 I_36_33 (.I0(A0), 
-                   .I1(A1), 
-                   .I2(E), 
-                   .O(D0));
-endmodule
-`timescale 1ns / 1ps
-
-module registerFile32(clk, 
-                      clr, 
-                      r0addr, 
-                      r1addr, 
-                      waddr, 
-                      wdata, 
-                      wena, 
-                      r0data, 
-                      r1data);
+module registerFile32 (
+    clk, 
+    clr, 
+    r0addr, 
+    r1addr, 
+    waddr, 
+    wdata, 
+    wena, 
+    r0data, 
+    r1data
+);
 
     input clk;
     input clr;
@@ -73,72 +39,47 @@ module registerFile32(clk,
     input [1:0] waddr;
     input [31:0] wdata;
     input wena;
-   output [31:0] r0data;
-   output [31:0] r1data;
-   
-   wire XLXN_5;
-   wire XLXN_6;
-   wire XLXN_7;
-   wire XLXN_8;
-   wire XLXN_9;
-   wire XLXN_10;
-   wire XLXN_11;
-   wire XLXN_12;
-   wire [31:0] XLXN_20;
-   wire [31:0] XLXN_21;
-   wire [31:0] XLXN_22;
-   wire [31:0] XLXN_23;
-   
-   D2_4E_MXILINX_registerFile32 XLXI_1 (.A0(waddr[0]), 
-                                        .A1(waddr[1]), 
-                                        .E(wena), 
-                                        .D0(XLXN_5), 
-                                        .D1(XLXN_6), 
-                                        .D2(XLXN_7), 
-                                        .D3(XLXN_8));
-   // synthesis attribute HU_SET of XLXI_1 is "XLXI_1_0"
-   FD32 XLXI_2 (.ce(XLXN_9), 
-                .clk(clk), 
-                .clr(clr), 
-                .D(wdata[31:0]), 
-                .Q(XLXN_20[31:0]));
-   FD32 XLXI_3 (.ce(XLXN_10), 
-                .clk(clk), 
-                .clr(clr), 
-                .D(wdata[31:0]), 
-                .Q(XLXN_21[31:0]));
-   FD32 XLXI_4 (.ce(XLXN_11), 
-                .clk(clk), 
-                .clr(clr), 
-                .D(wdata[31:0]), 
-                .Q(XLXN_22[31:0]));
-   FD32 XLXI_5 (.ce(XLXN_12), 
-                .clk(clk), 
-                .clr(clr), 
-                .D(wdata[31:0]), 
-                .Q(XLXN_23[31:0]));
-   AND2 XLXI_6 (.I0(XLXN_5), 
-                .I1(wena), 
-                .O(XLXN_9));
-   AND2 XLXI_7 (.I0(XLXN_6), 
-                .I1(wena), 
-                .O(XLXN_10));
-   AND2 XLXI_8 (.I0(XLXN_7), 
-                .I1(wena), 
-                .O(XLXN_11));
-   AND2 XLXI_9 (.I0(XLXN_8), 
-                .I1(wena), 
-                .O(XLXN_12));
-   mux4_32 XLXI_10 (.R0(XLXN_20[31:0]), 
-                    .R1(XLXN_21[31:0]), 
-                    .R2(XLXN_22[31:0]), 
-                    .R3(XLXN_23[31:0]), 
-                    .sel(r0addr[1:0]), 
-                    .Y(r0data[31:0]));
-   mux4_32 XLXI_11 (.R0(XLXN_20[31:0]), 
-                    .R1(XLXN_21[31:0]), 
-                    .R2(XLXN_22[31:0]), 
-                    .R3(XLXN_23[31:0]), 
-                    .sel(r1addr[1:0]), 
-                    .Y(r1data[31:0]));
+    output [31:0] r0data;
+    output [31:0] r1data;
+
+    wire D0, D1, D2, D3;
+    wire [31:0] R0, R1, R2, R3;
+
+    // 2-to-4 decoder with enable
+    D2_4E_MXILINX_registerFile32 decoder (
+        .A0(waddr[0]), 
+        .A1(waddr[1]), 
+        .E(wena), 
+        .D0(D0), 
+        .D1(D1), 
+        .D2(D2), 
+        .D3(D3)
+    );
+
+    // Four instances of 32-bit registers
+    FD32 reg0 (.ce(D0), .clk(clk), .clr(clr), .D(wdata), .Q(R0));
+    FD32 reg1 (.ce(D1), .clk(clk), .clr(clr), .D(wdata), .Q(R1));
+    FD32 reg2 (.ce(D2), .clk(clk), .clr(clr), .D(wdata), .Q(R2));
+    FD32 reg3 (.ce(D3), .clk(clk), .clr(clr), .D(wdata), .Q(R3));
+
+    // Read port 0
+    mux4_32 mux_r0 (
+        .R0(R0),
+        .R1(R1),
+        .R2(R2),
+        .R3(R3),
+        .sel(r0addr),
+        .Y(r0data)
+    );
+
+    // Read port 1
+    mux4_32 mux_r1 (
+        .R0(R0),
+        .R1(R1),
+        .R2(R2),
+        .R3(R3),
+        .sel(r1addr),
+        .Y(r1data)
+    );
+
 endmodule
