@@ -405,6 +405,10 @@
 `define IDS_MATCHES       4'h3
 `define ILA_DATA_HIGH     4'h4
 `define ILA_DATA_LOW      4'h5
+`define IDS_MEM_ADDR      4'h6  
+`define IDS_MEM_DATA_WRITE 4'h7 
+`define IDS_MEM_DATA_READ  4'h8  
+`define IDS_MEM_CMD        4'h9 
 
 // Name: in_arb
 // Description: Round-robin input arbiter
