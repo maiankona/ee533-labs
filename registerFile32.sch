@@ -9,8 +9,6 @@ BEGIN SCHEMATIC
         SIGNAL r0data(31:0)
         SIGNAL r1data(31:0)
         SIGNAL waddr(1:0)
-        SIGNAL r0addr(1:0)
-        SIGNAL r1addr(1:0)
         SIGNAL wdata(31:0)
         SIGNAL waddr(1)
         SIGNAL waddr(0)
@@ -28,31 +26,22 @@ BEGIN SCHEMATIC
         SIGNAL XLXN_58
         SIGNAL XLXN_59
         SIGNAL XLXN_60
-        SIGNAL XLXN_61
-        SIGNAL XLXN_62
-        SIGNAL XLXN_64
-        SIGNAL XLXN_65
         SIGNAL wena
+        SIGNAL r1addr(1:0)
+        SIGNAL XLXN_69(1:0)
+        SIGNAL XLXN_70
+        SIGNAL r0addr(1:0)
+        SIGNAL XLXN_72(1:0)
+        SIGNAL XLXN_73
         PORT Output r0data(31:0)
         PORT Output r1data(31:0)
         PORT Input waddr(1:0)
-        PORT Input r0addr(1:0)
-        PORT Input r1addr(1:0)
         PORT Input wdata(31:0)
         PORT Input clk
         PORT Input clr
         PORT Input wena
-        BEGIN BLOCKDEF d2_4e
-            TIMESTAMP 2000 1 1 10 10 10
-            RECTANGLE N 64 -384 320 -64 
-            LINE N 0 -128 64 -128 
-            LINE N 0 -256 64 -256 
-            LINE N 0 -320 64 -320 
-            LINE N 384 -128 320 -128 
-            LINE N 384 -192 320 -192 
-            LINE N 384 -256 320 -256 
-            LINE N 384 -320 320 -320 
-        END BLOCKDEF
+        PORT Input r1addr(1:0)
+        PORT Input r0addr(1:0)
         BEGIN BLOCKDEF FD32
             TIMESTAMP 2026 2 12 23 17 38
             RECTANGLE N 64 -256 320 0 
@@ -90,6 +79,26 @@ BEGIN SCHEMATIC
             LINE N 64 -144 144 -144 
             LINE N 64 -48 64 -144 
         END BLOCKDEF
+        BEGIN BLOCKDEF d2_4e
+            TIMESTAMP 2000 1 1 10 10 10
+            RECTANGLE N 64 -384 320 -64 
+            LINE N 0 -128 64 -128 
+            LINE N 0 -256 64 -256 
+            LINE N 0 -320 64 -320 
+            LINE N 384 -128 320 -128 
+            LINE N 384 -192 320 -192 
+            LINE N 384 -256 320 -256 
+            LINE N 384 -320 320 -320 
+        END BLOCKDEF
+        BEGIN BLOCKDEF fd
+            TIMESTAMP 2000 1 1 10 10 10
+            RECTANGLE N 64 -320 320 -64 
+            LINE N 0 -128 64 -128 
+            LINE N 0 -256 64 -256 
+            LINE N 384 -256 320 -256 
+            LINE N 80 -128 64 -144 
+            LINE N 64 -112 80 -128 
+        END BLOCKDEF
         BEGIN BLOCK XLXI_2 FD32
             PIN clk clk
             PIN clr clr
@@ -123,7 +132,7 @@ BEGIN SCHEMATIC
             PIN R1(31:0) FDOut1(31:0)
             PIN R2(31:0) FDOut2(31:0)
             PIN R3(31:0) FDOut3(31:0)
-            PIN sel(1:0) r0addr(1:0)
+            PIN sel(1:0) XLXN_72(1:0)
             PIN Y(31:0) r0data(31:0)
         END BLOCK
         BEGIN BLOCK XLXI_13 mux4_32
@@ -131,17 +140,8 @@ BEGIN SCHEMATIC
             PIN R1(31:0) FDOut1(31:0)
             PIN R2(31:0) FDOut2(31:0)
             PIN R3(31:0) FDOut3(31:0)
-            PIN sel(1:0) r1addr(1:0)
+            PIN sel(1:0) XLXN_69(1:0)
             PIN Y(31:0) r1data(31:0)
-        END BLOCK
-        BEGIN BLOCK XLXI_15 d2_4e
-            PIN A0 waddr(0)
-            PIN A1 waddr(1)
-            PIN E wena
-            PIN D0 XLXN_60
-            PIN D1 XLXN_59
-            PIN D2 XLXN_58
-            PIN D3 XLXN_57
         END BLOCK
         BEGIN BLOCK XLXI_31 and2
             PIN I0 XLXN_57
@@ -163,6 +163,25 @@ BEGIN SCHEMATIC
             PIN I1 wena
             PIN O XLXN_51
         END BLOCK
+        BEGIN BLOCK XLXI_37 d2_4e
+            PIN A0 waddr(0)
+            PIN A1 waddr(1)
+            PIN E wena
+            PIN D0 XLXN_60
+            PIN D1 XLXN_59
+            PIN D2 XLXN_58
+            PIN D3 XLXN_57
+        END BLOCK
+        BEGIN BLOCK XLXI_38 fd
+            PIN C clk
+            PIN D r0addr(1:0)
+            PIN Q XLXN_72(1:0)
+        END BLOCK
+        BEGIN BLOCK XLXI_39 fd
+            PIN C clk
+            PIN D r1addr(1:0)
+            PIN Q XLXN_69(1:0)
+        END BLOCK
     END NETLIST
     BEGIN SHEET 1 5440 3520
         BEGIN BRANCH r0data(31:0)
@@ -179,13 +198,9 @@ BEGIN SCHEMATIC
         IOMARKER 4816 1904 r1data(31:0) R0 28
         BEGIN BRANCH waddr(1:0)
             WIRE 624 1632 672 1632
-            WIRE 672 1632 736 1632
+            WIRE 672 1632 704 1632
+            WIRE 704 1632 736 1632
             WIRE 736 1632 784 1632
-        END BRANCH
-        BEGIN BRANCH r1addr(1:0)
-            WIRE 624 2112 784 2112
-            WIRE 784 2112 784 2336
-            WIRE 784 2336 3584 2336
         END BRANCH
         BEGIN BRANCH wdata(31:0)
             WIRE 624 2352 2144 2352
@@ -215,7 +230,6 @@ BEGIN SCHEMATIC
         BUSTAP 672 1632 672 1728
         BEGIN BRANCH waddr(1)
             WIRE 672 1728 672 1744
-            WIRE 672 1744 672 1744
             WIRE 672 1744 672 1776
             WIRE 672 1776 704 1776
             WIRE 704 1616 704 1776
@@ -227,7 +241,6 @@ BEGIN SCHEMATIC
         BUSTAP 736 1632 736 1728
         BEGIN BRANCH waddr(0)
             WIRE 736 1728 736 1744
-            WIRE 736 1744 736 1744
             WIRE 736 1744 736 1776
             WIRE 736 1776 960 1776
             WIRE 960 1552 1248 1552
@@ -269,11 +282,6 @@ BEGIN SCHEMATIC
             WIRE 3360 2272 3360 2768
             WIRE 3360 2272 3584 2272
         END BRANCH
-        BEGIN BRANCH r0addr(1:0)
-            WIRE 624 1872 2736 1872
-            WIRE 2736 1440 2736 1872
-            WIRE 2736 1440 3584 1440
-        END BRANCH
         BEGIN BRANCH clr
             WIRE 592 1184 2208 1184
             WIRE 2208 1184 2256 1184
@@ -292,7 +300,6 @@ BEGIN SCHEMATIC
         END INSTANCE
         BEGIN INSTANCE XLXI_13 3584 2368 R0
         END INSTANCE
-        INSTANCE XLXI_15 1248 1872 R0
         BEGIN BRANCH XLXN_46
             WIRE 2016 1424 2032 1424
             WIRE 2032 1424 2032 1632
@@ -306,8 +313,15 @@ BEGIN SCHEMATIC
         BEGIN BRANCH clk
             WIRE 544 2576 704 2576
             WIRE 704 2576 704 2768
-            WIRE 704 2768 2080 2768
+            WIRE 704 2768 1088 2768
+            WIRE 1088 2768 2080 2768
             WIRE 2080 2768 2256 2768
+            WIRE 1024 2080 1072 2080
+            WIRE 1024 2080 1024 2592
+            WIRE 1024 2592 1088 2592
+            WIRE 1024 2592 1024 2720
+            WIRE 1024 2720 1088 2720
+            WIRE 1088 2720 1088 2768
             WIRE 2080 656 2272 656
             WIRE 2080 656 2080 1328
             WIRE 2080 1328 2272 1328
@@ -340,18 +354,20 @@ BEGIN SCHEMATIC
             WIRE 1648 1744 1664 1744
             WIRE 1664 1744 2112 1744
             WIRE 2112 1744 2112 2960
-            WIRE 1760 2880 1824 2880
             WIRE 1760 2880 1760 2960
             WIRE 1760 2960 2112 2960
+            WIRE 1760 2880 1808 2880
+            WIRE 1808 2880 1824 2880
         END BRANCH
         BEGIN BRANCH XLXN_58
             WIRE 1632 1680 1648 1680
             WIRE 1648 1680 1664 1680
             WIRE 1664 1680 2048 1680
             WIRE 2048 1680 2048 2208
-            WIRE 1680 2112 1744 2112
             WIRE 1680 2112 1680 2208
             WIRE 1680 2208 2048 2208
+            WIRE 1680 2112 1728 2112
+            WIRE 1728 2112 1744 2112
         END BRANCH
         BEGIN BRANCH XLXN_59
             WIRE 1632 1616 1648 1616
@@ -365,10 +381,11 @@ BEGIN SCHEMATIC
         END BRANCH
         BEGIN BRANCH XLXN_60
             WIRE 1632 1552 2096 1552
-            WIRE 1664 784 1744 784
             WIRE 1664 784 1664 816
             WIRE 1664 816 2096 816
             WIRE 2096 816 2096 1552
+            WIRE 1664 784 1728 784
+            WIRE 1728 784 1744 784
         END BRANCH
         IOMARKER 624 1392 wena R180 28
         BEGIN BRANCH wena
@@ -377,7 +394,7 @@ BEGIN SCHEMATIC
             WIRE 784 1472 1024 1472
             WIRE 1024 1472 1024 1664
             WIRE 880 1664 880 1808
-            WIRE 880 1808 1232 1808
+            WIRE 880 1808 1056 1808
             WIRE 880 1664 1024 1664
             WIRE 1024 1392 1264 1392
             WIRE 1264 1392 1616 1392
@@ -388,8 +405,8 @@ BEGIN SCHEMATIC
             WIRE 1616 1392 1744 1392
             WIRE 1744 1392 1760 1392
             WIRE 1024 1392 1024 1472
-            WIRE 1232 1744 1232 1808
-            WIRE 1232 1744 1248 1744
+            WIRE 1056 1744 1056 1808
+            WIRE 1056 1744 1248 1744
             WIRE 1264 720 1264 1392
             WIRE 1264 720 1744 720
         END BRANCH
@@ -397,5 +414,28 @@ BEGIN SCHEMATIC
         INSTANCE XLXI_32 1744 2176 R0
         INSTANCE XLXI_34 1760 1520 R0
         INSTANCE XLXI_35 1744 848 R0
+        INSTANCE XLXI_37 1248 1872 R0
+        INSTANCE XLXI_38 1072 2208 R0
+        INSTANCE XLXI_39 1088 2720 R0
+        BEGIN BRANCH r1addr(1:0)
+            WIRE 624 2112 848 2112
+            WIRE 848 2112 848 2464
+            WIRE 848 2464 1088 2464
+        END BRANCH
+        BEGIN BRANCH XLXN_69(1:0)
+            WIRE 1472 2464 2528 2464
+            WIRE 2528 2336 2528 2464
+            WIRE 2528 2336 3584 2336
+        END BRANCH
+        BEGIN BRANCH r0addr(1:0)
+            WIRE 624 1872 848 1872
+            WIRE 848 1872 848 1952
+            WIRE 848 1952 1072 1952
+        END BRANCH
+        BEGIN BRANCH XLXN_72(1:0)
+            WIRE 1456 1952 2736 1952
+            WIRE 2736 1440 2736 1952
+            WIRE 2736 1440 3584 1440
+        END BRANCH
     END SHEET
 END SCHEMATIC
