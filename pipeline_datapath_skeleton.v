@@ -29,17 +29,20 @@ module pipeline_datapath_skeleton(
     wire [31:0] pc_1;
     wire [31:0] instruction;
     
-    assign pc_1 = pc + 1;        // PC+1 according to the image
+    assign pc_1 = pc;        // PC+1 according to the image
 
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) pc <= 32'b0;
-        else     pc <= pc_1;
+        else     
+			begin
+				pc <= pc_1 + 1;
+			end
     end
     
     // I-MEM CORE (Part 2) placeholder
     mem32bit512 imem_blk (
         .clk(clk),
-        .addr(pc[8:0]), 
+        .addr(pc_1[8:0]), 
         .dout(instruction)
     );
     
@@ -57,7 +60,7 @@ module pipeline_datapath_skeleton(
     wire [4:0]  id_shift;        // ALU's 5-bit shift
     wire        WRegEn, WMemEn; 
     wire [2:0]  WR1;
-	wire [2:0] Reg1_addr, Reg2_addr; //additional declaration
+	 wire [2:0] Reg1_addr, Reg2_addr; //additional declaration
 
     // EXPECTED BIT DISTRIBUTION: the 32-bit instruction into 3-bit parts
     assign WMemEn   = if_id[31];      // Bit 31: WMeEn
@@ -109,6 +112,7 @@ module pipeline_datapath_skeleton(
         end
     end
     
+	 /*
     //STAGE 3: EX
     wire [31:0] alu_out;
     alu_32bit alu_unit ( //THIS IS CONFIRMED TO CALL APPROPRIATELY
@@ -120,7 +124,8 @@ module pipeline_datapath_skeleton(
         .shift   (id_ex_shift),
         .Out     (alu_out)
     );
-    
+    */
+	 
     //EX/MEM registers
     //INIT
     reg [31:0] ex_me_result, ex_me_r2;
@@ -131,7 +136,7 @@ module pipeline_datapath_skeleton(
         if (rst) begin
             ex_me_WRegEn <= 0; ex_me_WMemEn <= 0;
         end else begin
-            ex_me_result  <= alu_out;
+            //ex_me_result  <= alu_out;
             ex_me_r2      <= id_ex_r2;
             ex_me_WRegEn  <= id_ex_WRegEn;
             ex_me_WMemEn  <= id_ex_WMemEn;
@@ -152,26 +157,25 @@ module pipeline_datapath_skeleton(
         .addrb(8'b0),             // Second port unused for basic CPU
         .doutb(dme_dout)          // 64-bit output [cite: 33]
     );    
-    //ME/WB registers
-    //INIT
-    reg [31:0] me_wb_alu_result, me_wb_me_result;
-    reg        me_wb_WRegEn, me_wb_is_load;
-    reg [2:0]  me_wb_WR1;
-    
-    always @(posedge clk) begin
-        if (rst) begin
-            me_wb_WRegEn <= 0;
-        end else begin
-            me_wb_alu_result <= ex_me_result;
-            me_wb_me_result  <= dme_dout[31:0];
-            me_wb_WRegEn    <= ex_me_WRegEn;
-            me_wb_WR1       <= ex_me_WR1;
-            me_wb_is_load   <= ex_me_is_load;
-        end
-    end 
-    
-    //STAGE 5: WB
-    // Implementation of the WB Data Mux for LOAD instructions
-    wire [31:0] wb_data = (me_wb_is_load) ? me_wb_me_result : me_wb_alu_result;
+
+	// Stage registers MEM / WB
+	reg mem_wb_WMemEn;
+	reg mem_wb_WR1;
+	reg [63:0] mem_wb_dout;
+	
+	always@(posedge clk) begin
+	if (rst)
+		begin
+		mem_wb_WMemEn <= 0;
+		mem_wb_WR1 <= 0;
+		mem_wb_dout <= 0;
+		end
+		else begin
+			mem_wb_WMemEn <= ex_me_WMemEn;
+			mem_wb_WR1 <= ex_me_WR1;
+			mem_wb_dout <= dme_dout;
+		end
+	 end
+	
 
 endmodule
