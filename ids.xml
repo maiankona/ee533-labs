@@ -36,6 +36,26 @@
             <nf:description>Logic Analyzers Register</nf:description>
             <nf:type>generic_hardware32</nf:type>
         </nf:register>
+		        <nf:register>
+          <nf:name>MEM_addr</nf:name>
+            <nf:description>Memory Address Register</nf:description>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+        <nf:register>
+          <nf:name>MEM_data_write</nf:name>
+            <nf:description>Memory Data Write Register</nf:description>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
+        <nf:register>
+          <nf:name>MEM_data_read</nf:name>
+            <nf:description>Memory Data Read Register</nf:description>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+		<nf:register>
+          <nf:name>MEM_command</nf:name>
+            <nf:description>Memory Command Register</nf:description>
+            <nf:type>generic_software32</nf:type>
+        </nf:register>
 	</nf:registers>
 </nf:module>
 
