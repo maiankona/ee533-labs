@@ -164,7 +164,7 @@ module pipeline_datapath_skeleton(
 	// Stage registers MEM / WB
 	reg mem_wb_WMemEn;
 	reg [2:0] mem_wb_WR1;
-	reg [63:0] wb_data;
+	reg [31:0] wb_data; // [63:0] wb_data;
 	reg mem_wb_WRegEn;
 	
 	always@(posedge clk or posedge rst) begin
@@ -177,7 +177,7 @@ module pipeline_datapath_skeleton(
 		else begin
 			mem_wb_WMemEn <= ex_me_WMemEn;
 			mem_wb_WR1 <= ex_me_WR1;
-			wb_data <= dme_dout;
+			wb_data <= dme_dout[31:0];
 		end
 	 end
 	
