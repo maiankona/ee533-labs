@@ -48,7 +48,7 @@ module pipeline_datapath_skeleton(
     
     //registers for IF/ID
     reg [31:0] if_id;
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) if_id <= 32'b0;
         else     if_id <= instruction;
     end
@@ -75,16 +75,19 @@ module pipeline_datapath_skeleton(
 
     // Added is_load logic for downstream Mux
     wire id_is_load = (WRegEn == 1'b1 && WMemEn == 1'b0); //SO IS_LOAD IS INTENDED LOGIC FOR THE LOAD INSTRUCTIONS
-    
+    wire negEdgeClk;
+	 
+	 assign negEdgeClk = ~clk;
+	 
     // This is the "Reference" to the .v module
     registerFile32 rf_inst (
-        .clk    (clk),
+        .clk    (negEdgeClk),
         .clr    (rst),
         .r0addr (if_id[29:27]),  // Reg1 from instruction 
         .r1addr (if_id[26:24]),  // Reg2 from instruction 
-        .waddr  (me_wb_WR1),    // Propagated write address from WB stage
+        .waddr  (mem_wb_WR1),    // Propagated write address from WB stage
         .wdata  (wb_data),       // Data to be written back
-        .wena   (me_wb_WRegEn), // Write enable signal from WB stage
+        .wena   (ex_me_WRegEn), // Write enable signal from ex/mem stage register
         .r0data (rf_r1),         // Output to ID/EX register
         .r1data (rf_r2)          // Output to ID/EX register
     );
@@ -97,7 +100,7 @@ module pipeline_datapath_skeleton(
     reg        id_ex_WRegEn, id_ex_WMemEn, id_ex_is_load;
     reg [2:0]  id_ex_WR1;
     
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) begin
             id_ex_WRegEn <= 0; id_ex_WMemEn <= 0; id_ex_is_load <= 0;
         end else begin
@@ -132,7 +135,7 @@ module pipeline_datapath_skeleton(
     reg        ex_me_WRegEn, ex_me_WMemEn, ex_me_is_load;
     reg [2:0]  ex_me_WR1;
     
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) begin
             ex_me_WRegEn <= 0; ex_me_WMemEn <= 0;
         end else begin
@@ -160,20 +163,21 @@ module pipeline_datapath_skeleton(
 
 	// Stage registers MEM / WB
 	reg mem_wb_WMemEn;
-	reg mem_wb_WR1;
-	reg [63:0] mem_wb_dout;
+	reg [2:0] mem_wb_WR1;
+	reg [63:0] wb_data;
+	reg mem_wb_WRegEn;
 	
-	always@(posedge clk) begin
+	always@(posedge clk or posedge rst) begin
 	if (rst)
 		begin
 		mem_wb_WMemEn <= 0;
 		mem_wb_WR1 <= 0;
-		mem_wb_dout <= 0;
+		wb_data <= 0;
 		end
 		else begin
 			mem_wb_WMemEn <= ex_me_WMemEn;
 			mem_wb_WR1 <= ex_me_WR1;
-			mem_wb_dout <= dme_dout;
+			wb_data <= dme_dout;
 		end
 	 end
 	
