@@ -81,8 +81,13 @@ module ids
    // hardware registers
    reg [31:0]                    matches;
 	reg [63:0]							ILA_data; 	// For Logic Analyzer
-	
 
+	// memory interface registers
+	wire [31:0]                   mem_addr; //sw
+	wire [31:0]                   mem_data_write; //sw
+	wire [31:0]                   mem_cmd; //sw
+	reg [31:0]                    mem_data_read; //hw
+	
    // internal state
    reg [1:0]                     state, state_next;
    reg [31:0]                    matches_next;
@@ -161,8 +166,8 @@ module ids
       .TAG                 (`IDS_BLOCK_ADDR),          
       .REG_ADDR_WIDTH      (`IDS_REG_ADDR_WIDTH),     
       .NUM_COUNTERS        (0),                 
-      .NUM_SOFTWARE_REGS   (3),                 
-      .NUM_HARDWARE_REGS   (3)                  
+	   .NUM_SOFTWARE_REGS   (6),   // from 3 to 6 -Maia              
+	   .NUM_HARDWARE_REGS   (4)  // from 3 to 4 -Maia                
    ) module_regs (
       .reg_req_in       (reg_req_in),
       .reg_ack_in       (reg_ack_in),
@@ -183,14 +188,24 @@ module ids
       .counter_decrement(),
 
       // --- SW regs interface
-      .software_regs    ({ids_cmd,pattern_low,pattern_high}),
+	   .software_regs    ({mem_cmd, mem_data_write, mem_addr,ids_cmd,pattern_low,pattern_high}),
 
       // --- HW regs interface
-      .hardware_regs    ({ILA_data[63:32],ILA_data[31:0],matches}),
+	   .hardware_regs    ({mem_data_read, ILA_data[63:32],ILA_data[31:0],matches}),
 
       .clk              (clk),
       .reset            (reset)
     );
+
+	// pipeline SKELETON instatiation (for now)
+	pipeline_datapath_skeleton processor (
+    .clk(clk),
+    .rst(reset),
+    .mem_addr_reg(mem_addr),
+    .mem_data_write_reg(mem_data_write),
+    .mem_data_read_reg(mem_data_read),
+    .mem_cmd_reg(mem_cmd)
+);
 	 
 	 		// --- Logic Analyzer
 		
@@ -284,3 +299,4 @@ module ids
    end   
 
 endmodule
+
