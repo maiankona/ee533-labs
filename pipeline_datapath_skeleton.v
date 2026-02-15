@@ -18,39 +18,69 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
+
+
 module pipeline_datapath_skeleton(
     input clk,
-    input rst
+    input rst,
+	 input  [31:0] mem_addr_reg,
+	 input  [31:0] mem_cmd_reg,
+	 input  [31:0] mem_data_write_reg,
+	 output reg [31:0] mem_data_read_reg
     );
 
     //STAGE 1: IF
     //INIT
     reg [31:0] pc;               
-    wire [31:0] pc_1;
-    wire [31:0] instruction;
     
-    assign pc_1 = pc;        // PC+1 according to the image
+    wire instr_wr_en;
+    wire data_wr_en;
+    
+    wire [31:0] instr_mem_out;
+    wire [31:0] instr_in;
+    wire [31:0] data_mem_addr;
+    wire [31:0] instr_mem_addr;
+    wire [31:0] command_in;
+	 wire local_WMemEn;
+	 wire [31:0] local_mem_data;
+	 wire [31:0] local_mem_addr; 
+    
+    assign command_in = mem_cmd_reg;    // receives command from outside
+    assign instr_wr_en = command_in[5]; // writes into instr. mem if bit-5 = 0
+    assign data_wr_en = command_in[6]; // writes into data. mem if bit-5 = 1
+    assign instr_in = mem_data_write_reg;   // internal instr from user-SW
+    
+	 assign local_WMemEn = data_wr_en ?  data_wr_en : ex_me_WMemEn; 
+	 assign local_mem_data = data_wr_en ? instr_in : ex_me_r2;
+	 assign local_mem_addr = data_wr_en ? data_mem_addr : ex_me_r1[7:0];
+	 assign instr_mem_addr = (instr_wr_en) ? mem_addr_reg : pc;
+	 assign data_mem_addr  = (data_wr_en)  ? mem_addr_reg : pc;
+     
 
     always @(posedge clk or posedge rst) begin
-        if (rst) pc <= 32'b0;
-        else     
-			begin
-				pc <= pc_1 + 1;
-			end
+        pc <= pc + 1;  // PC from cycle 0
+        mem_data_read_reg <= instr_mem_out; // pass internal signal from the instruction memory to external reg
+        if (rst) 
+        begin
+            pc <= 32'b0;
+            mem_data_read_reg <= 32'b0; // signal goes to HW registers
+        end
     end
-    
+
     // I-MEM CORE (Part 2) placeholder
-    mem32bit512 imem_blk (
+    mem32bit512Dual imem_blk (        
+		.addr(instr_mem_addr),
         .clk(clk),
-        .addr(pc_1[8:0]), 
-        .dout(instruction)
-    );
+		.din(instr_in),
+        .dout(instr_mem_out),
+		.we(instr_wr_en)
+		);
     
     //registers for IF/ID
     reg [31:0] if_id;
     always @(posedge clk or posedge rst) begin
         if (rst) if_id <= 32'b0;
-        else     if_id <= instruction;
+        else     if_id <= instr_mem_out; // Packs incoming instruction into the IF/ID stage register
     end
     
     //STAGE 2: ID
@@ -140,7 +170,7 @@ module pipeline_datapath_skeleton(
             ex_me_WRegEn <= 0; ex_me_WMemEn <= 0;
         end else begin
             //ex_me_result  <= alu_out;
-				ex_me_r1		  <= id_ex_r1;
+            ex_me_r1		  <= id_ex_r1;
             ex_me_r2      <= id_ex_r2;
             ex_me_WRegEn  <= id_ex_WRegEn;
             ex_me_WMemEn  <= id_ex_WMemEn;
@@ -148,15 +178,15 @@ module pipeline_datapath_skeleton(
             ex_me_is_load <= id_ex_is_load;
         end
     end
-    
+
     //STAGE 4: ME
     wire [63:0] dme_dout;
     // D-MEM IP CORE (Part 2) placeholder
     mem64bit256 dmem_blk (
         .clka(clk),
-        .wea(ex_me_WMemEn),
-        .addra(ex_me_r1[7:0]),
-        .dina({32'b0, ex_me_r2}), // Zero-padding for 32-bit data, AS PER INSTRUCTIONS. 50% DEADSPACE
+        .wea(local_WMemEn),
+        .addra(local_mem_addr),
+        .dina({32'b0,local_mem_data}), // Zero-padding for 32-bit data, AS PER INSTRUCTIONS. 50% DEADSPACE
         .clkb(clk),
         .addrb(8'b0),             // Second port unused for basic CPU
         .doutb(dme_dout)          // 64-bit output [cite: 33]
@@ -180,7 +210,7 @@ module pipeline_datapath_skeleton(
 			mem_wb_WMemEn <= ex_me_WMemEn;
 			mem_wb_WR1 <= ex_me_WR1;
 			mem_wb_WRegEn <= ex_me_WRegEn;
-			wb_data <= dme_dout;
+			wb_data <= dme_dout[31:0];
 		end
 	 end
 	
