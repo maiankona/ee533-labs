@@ -1,103 +1,100 @@
-// Verilog test fixture created from schematic C:\Xilinx\10.1\ISE\ISEexamples\ee533-lab5\registerFile32.sch - Thu Feb 12 15:01:37 2026
+////////////////////////////////////////////////////////////////////////////////
+// Copyright (c) 1995-2003 Xilinx, Inc.
+// All Right Reserved.
+////////////////////////////////////////////////////////////////////////////////
+//   ____  ____ 
+//  /   /\/   / 
+// /___/  \  /    Vendor: Xilinx 
+// \   \   \/     Version : 10.1
+//  \   \         Application : ISE
+//  /   /         Filename : RF32_tb.tfw
+// /___/   /\     Timestamp : Sat Feb 14 18:58:14 2026
+// \   \  /  \ 
+//  \___\/\___\ 
+//
+//Command: 
+//Design Name: RF32_tb
+//Device: Xilinx
+//
+`timescale 1ns/1ps
 
-`timescale 1ns / 1ps
+module RegisterFile32_tb;
+    reg clk = 1'b0;
+    reg clr = 1'b0;
+    reg [2:0] r0addr = 3'b000;
+    reg [2:0] r1addr = 3'b000;
+    reg [2:0] waddr = 3'b000;
+    reg [31:0] wdata = 32'b00000000000000000000000000000000;
+    reg wena = 1'b0;
+    wire [31:0] r0data;
+    wire [31:0] r1data;
 
-module registerFile32_tb();
+    parameter PERIOD = 200;
+    parameter real DUTY_CYCLE = 0.5;
+    parameter OFFSET = 100;
 
-// inputs
-   reg clk;
-	reg clr;
-   reg wena;
-   reg [1:0] waddr;
-   reg [1:0] r0addr;
-   reg [1:0] r1addr;
-   reg [31:0] wdata;
+    initial    // Clock process for clk
+    begin
+        #OFFSET;
+        forever
+        begin
+            clk = 1'b0;
+            #(PERIOD-(PERIOD*DUTY_CYCLE)) clk = 1'b1;
+            #(PERIOD*DUTY_CYCLE);
+        end
+    end
 
-// outputs
-   wire [31:0] r0data;
-   wire [31:0] r1data;
+    registerFile32 UUT (
+        .clk(clk),
+        .clr(clr),
+        .r0addr(r0addr),
+        .r1addr(r1addr),
+        .waddr(waddr),
+        .wdata(wdata),
+        .wena(wena),
+        .r0data(r0data),
+        .r1data(r1data));
 
-// instatiation
-   registerFile32 UUT (
-		.r0data(r0data), 
-		.r1data(r1data), 
-		.clk(clk),
-		.clr(clr),
-		.wena(wena), 
-		.waddr(waddr), 
-		.r0addr(r0addr), 
-		.r1addr(r1addr), 
-		.wdata(wdata)
-   );
+    initial begin
+        // -------------  Current Time:  100ns
+        #100;
+        clr = 1'b1;
+        wdata = 32'b10101010101010101010101010101010;
+        r1addr = 3'b001;
+        // -------------------------------------
+        // -------------  Current Time:  185ns
+        #85;
+        clr = 1'b0;
+        wena = 1'b1;
+        // -------------------------------------
+        // -------------  Current Time:  585ns
+        #400;
+        wdata = 32'b10111011101110111011101110111011;
+        waddr = 3'b001;
+        // -------------------------------------
+        // -------------  Current Time:  1185ns
+        #600;
+        wdata = 32'b11001100110011001100110011001100;
+        // -------------------------------------
+        // -------------  Current Time:  1585ns
+        #400;
+        r0addr = 3'b010;
+        waddr = 3'b010;
+        // -------------------------------------
+        // -------------  Current Time:  1785ns
+        #200;
+        r1addr = 3'b011;
+        // -------------------------------------
+        // -------------  Current Time:  2185ns
+        #400;
+        wdata = 32'b11011101110111011101110111011101;
+        waddr = 3'b011;
+        // -------------------------------------
+        // -------------  Current Time:  2585ns
+        #400;
+        wena = 1'b0;
+        // -------------------------------------
+    end
 
-   `ifdef auto_init
-       initial begin
-		clk = 0;
-		clr = 0;
-		wena = 0;
-		waddr = 0;
-		r0addr = 0;
-		r1addr = 0;
-		wdata = 0;
-   `endif
-	
-// Testing
-    
-    always #5 clk = ~clk;
-    
-//    initial begin
-//        clk = 0; wena = 0; clr = 1;
-//        waddr = 2'b00; r0addr = 2'b00; r1addr = 2'b00; wdata = 0;
-//        #10; clr = 0;
-//        
-//        // write to R0
-//        wena = 0; waddr = 2'b00; wdata = 32'hAAAAAAAA;
-//        #10;
-//        
-//        // write to R1
-//        waddr = 2'b01; wdata = 32'hBBBBBBBB;
-//        #10;
-//        
-//        // write to R2
-//        waddr = 2'b10; wdata = 32'hCCCCCCCC;
-//        #10;
-//        
-//        // write to R3
-//        waddr = 2'b11; wdata = 32'hDDDDDDDD;
-//        #10;
-//        
-//        // stop writing
-//        wena = 1;
-//        #10;
-//        
-//        // read R0 and R1
-//        r0addr = 2'b00; r1addr = 2'b01;
-//        #10;
-//        
-//        // read R2 and R3
-//        r0addr = 2'b10; r1addr = 2'b11;
-//        #10;
-//        
-//        $finish;
-//    end
-initial begin
-    clk = 0; clr = 1; wena = 1;
-    #10 clr = 0;
-    
-    // Write 0xFFFFFFFF to R0
-    #10;
-    wena = 0;
-    waddr = 2'b00;
-    wdata = 32'hFFFFFFFF;
-    #50;  // Hold for 5 clock cycles
-    
-    wena = 1;
-    #20;
-    
-    // Try to read R0
-    r0addr = 2'b00;
-    #20;
-    
-    $finish;
-end
 endmodule
+
