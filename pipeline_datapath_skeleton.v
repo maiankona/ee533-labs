@@ -80,7 +80,7 @@ module pipeline_datapath_skeleton(
 	 assign negEdgeClk = ~clk;
 	 
     // This is the "Reference" to the .v module
-    registerFile32Nic rf_inst (
+    registerFile32 rf_inst (
         .clk    (negEdgeClk),
         .clr    (rst),
         .r0addr (if_id[29:27]),  // Reg1 from instruction 
