@@ -80,14 +80,14 @@ module pipeline_datapath_skeleton(
 	 assign negEdgeClk = ~clk;
 	 
     // This is the "Reference" to the .v module
-    registerFile32 rf_inst (
+    registerFile32Nic rf_inst (
         .clk    (negEdgeClk),
         .clr    (rst),
         .r0addr (if_id[29:27]),  // Reg1 from instruction 
         .r1addr (if_id[26:24]),  // Reg2 from instruction 
         .waddr  (mem_wb_WR1),    // Propagated write address from WB stage
         .wdata  (wb_data),       // Data to be written back
-        .wena   (ex_me_WRegEn), // Write enable signal from ex/mem stage register
+        .wena   (mem_wb_WRegEn), // Write enable signal from mem / WB stage register
         .r0data (rf_r1),         // Output to ID/EX register
         .r1data (rf_r2)          // Output to ID/EX register
     );
@@ -131,7 +131,7 @@ module pipeline_datapath_skeleton(
 	 
     //EX/MEM registers
     //INIT
-    reg [31:0] ex_me_result, ex_me_r2;
+    reg [31:0] ex_me_r1, ex_me_r2;
     reg        ex_me_WRegEn, ex_me_WMemEn, ex_me_is_load;
     reg [2:0]  ex_me_WR1;
     
@@ -140,6 +140,7 @@ module pipeline_datapath_skeleton(
             ex_me_WRegEn <= 0; ex_me_WMemEn <= 0;
         end else begin
             //ex_me_result  <= alu_out;
+				ex_me_r1		  <= id_ex_r1;
             ex_me_r2      <= id_ex_r2;
             ex_me_WRegEn  <= id_ex_WRegEn;
             ex_me_WMemEn  <= id_ex_WMemEn;
@@ -154,7 +155,7 @@ module pipeline_datapath_skeleton(
     mem64bit256 dmem_blk (
         .clka(clk),
         .wea(ex_me_WMemEn),
-        .addra(ex_me_result[7:0]),
+        .addra(ex_me_r1[7:0]),
         .dina({32'b0, ex_me_r2}), // Zero-padding for 32-bit data, AS PER INSTRUCTIONS. 50% DEADSPACE
         .clkb(clk),
         .addrb(8'b0),             // Second port unused for basic CPU
@@ -164,7 +165,7 @@ module pipeline_datapath_skeleton(
 	// Stage registers MEM / WB
 	reg mem_wb_WMemEn;
 	reg [2:0] mem_wb_WR1;
-	reg [31:0] wb_data; // [63:0] wb_data;
+	reg [63:0] wb_data;
 	reg mem_wb_WRegEn;
 	
 	always@(posedge clk or posedge rst) begin
@@ -172,12 +173,14 @@ module pipeline_datapath_skeleton(
 		begin
 		mem_wb_WMemEn <= 0;
 		mem_wb_WR1 <= 0;
+		mem_wb_WRegEn <= 0;
 		wb_data <= 0;
 		end
 		else begin
 			mem_wb_WMemEn <= ex_me_WMemEn;
 			mem_wb_WR1 <= ex_me_WR1;
-			wb_data <= dme_dout[31:0];
+			mem_wb_WRegEn <= ex_me_WRegEn;
+			wb_data <= dme_dout;
 		end
 	 end
 	
