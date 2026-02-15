@@ -27,11 +27,19 @@ module pipeline_tb;
 	// Inputs
 	reg clk;
 	reg rst;
+	reg  [31:0] mem_addr_reg;
+	reg  [31:0] mem_cmd_reg_in;
+	reg  [31:0] mem_data_write_reg;
+	wire [31:0] mem_data_read_reg;
 
 	// Instantiate the Unit Under Test (UUT)
 	pipeline_datapath_skeleton uut (
 		.clk(clk), 
-		.rst(rst)
+		.rst(rst),
+		.mem_addr_reg(),
+	   .mem_cmd_reg(mem_cmd_reg_in),
+	   .mem_data_write_reg(),
+	   .mem_data_read_reg()
 	);
 
 	initial
@@ -41,6 +49,7 @@ module pipeline_tb;
 		// Initialize Inputs
 		clk = 0;
 		rst = 0;
+		mem_cmd_reg_in = 32'b0;
 
 		// Wait 100 ns for global reset to finish
 		#5;
