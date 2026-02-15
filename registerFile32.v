@@ -19,7 +19,7 @@ module registerFile32(
     assign r1data = rf[r1addr];
 
     // Synchronous Write and Reset
-    always @(posedge clk) begin
+    always @(posedge clk or posedge clr) begin
         if (clr) begin
             // Reset all registers to 0
             for (i = 0; i < 8; i = i + 1) rf[i] <= 32'b0;
