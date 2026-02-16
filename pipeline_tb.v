@@ -27,19 +27,19 @@ module pipeline_tb;
 	// Inputs
 	reg clk;
 	reg rst;
-	reg  [31:0] mem_addr_reg;
-	reg  [31:0] mem_cmd_reg_in;
-	reg  [31:0] mem_data_write_reg;
-	wire [31:0] mem_data_read_reg;
+	reg  [31:0] mem_addr_reg_tb;
+	reg  [31:0] mem_cmd_reg_in_tb;
+	reg  [31:0] mem_data_write_reg_tb;
+	wire [31:0] mem_data_read_reg_tb;
 
 	// Instantiate the Unit Under Test (UUT)
 	pipeline_datapath_skeleton uut (
 		.clk(clk), 
 		.rst(rst),
-		.mem_addr_reg(),
-	   .mem_cmd_reg(mem_cmd_reg_in),
-	   .mem_data_write_reg(),
-	   .mem_data_read_reg()
+		.mem_addr_reg(mem_addr_reg_tb),
+	   .mem_cmd_reg(mem_cmd_reg_in_tb),
+	   .mem_data_write_reg(mem_data_write_reg_tb),
+	   .mem_data_read_reg(mem_data_read_reg_tb)
 	);
 
 	initial
@@ -49,16 +49,29 @@ module pipeline_tb;
 		// Initialize Inputs
 		clk = 0;
 		rst = 0;
-		mem_cmd_reg_in = 32'b0;
+		mem_cmd_reg_in_tb = 6'b000000;
+		mem_addr_reg_tb =32'h00000000;
+		mem_data_write_reg_tb =32'h00000000; 
 
-		// Wait 100 ns for global reset to finish
+		//
 		#5;
       rst = 1;
 		
 		//
 		#5;
       rst = 0;
+		//
+		#65
+		mem_cmd_reg_in_tb = 6'b100000; // write to instruction data (must be at least 50 ns)		
+		mem_addr_reg_tb =32'h00000002;
+		mem_data_write_reg_tb =32'hFFFFFFFF;
+			
+		#50;
+		mem_addr_reg_tb =32'h00000002;
+		mem_data_write_reg_tb =32'hFFFFFFFF;
+		mem_cmd_reg_in_tb = 6'b000000; // stop writing to instruction data (must be at least 50 ns later)
 
+		
 		//
 		
 //		$stop;
