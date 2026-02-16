@@ -31,23 +31,27 @@ module pipeline_datapath_skeleton(
 
     //STAGE 1: IF
     //INIT
-    reg [31:0] pc;               
+    reg [31:0] pc;
+	 reg instr_wr_en_latched;	 
     
     wire instr_wr_en;
     wire data_wr_en;
-    
+	 wire local_WMemEn;
+	 wire pc_halt;
+	 wire program_mode;
+	 wire exec_mode;
+	 
     wire [31:0] instr_mem_out;
     wire [31:0] instr_in;
     wire [31:0] data_mem_addr;
     wire [31:0] instr_mem_addr;
     wire [31:0] command_in;
-	 wire local_WMemEn;
 	 wire [31:0] local_mem_data;
 	 wire [31:0] local_mem_addr; 
     
     assign command_in = mem_cmd_reg;    // receives command from outside
     assign instr_wr_en = command_in[5]; // writes into instr. mem if bit-5 = 0
-    assign data_wr_en = command_in[6]; // writes into data. mem if bit-5 = 1
+    assign data_wr_en = command_in[6]; // writes into data. mem if bit-6 = 1
     assign instr_in = mem_data_write_reg;   // internal instr from user-SW
     
 	 assign local_WMemEn = data_wr_en ?  data_wr_en : ex_me_WMemEn; 
@@ -55,16 +59,25 @@ module pipeline_datapath_skeleton(
 	 assign local_mem_addr = data_wr_en ? data_mem_addr : ex_me_r1[7:0];
 	 assign instr_mem_addr = (instr_wr_en) ? mem_addr_reg : pc;
 	 assign data_mem_addr  = (data_wr_en)  ? mem_addr_reg : pc;
-     
+	 assign program_mode = instr_wr_en_latched;
+	 assign pc_halt = program_mode;
+	 assign exec_mode = ~program_mode;
 
     always @(posedge clk or posedge rst) begin
-        pc <= pc + 1;  // PC from cycle 0
-        mem_data_read_reg <= instr_mem_out; // pass internal signal from the instruction memory to external reg
         if (rst) 
         begin
             pc <= 32'b0;
             mem_data_read_reg <= 32'b0; // signal goes to HW registers
+				instr_wr_en_latched <= 1'b0;
         end
+		  else begin
+				instr_wr_en_latched <= instr_wr_en;		 
+				if (exec_mode) begin
+					if (~pc_halt)		// If writing instr, halt PC counter
+						pc <= pc + 1;  // PC from cycle 0
+					mem_data_read_reg <= instr_mem_out; // pass internal signal from the instruction memory to external reg
+				end
+		  end	
     end
 
     // I-MEM CORE (Part 2) placeholder
@@ -73,15 +86,18 @@ module pipeline_datapath_skeleton(
         .clk(clk),
 		.din(instr_in),
         .dout(instr_mem_out),
-		.we(instr_wr_en)
+		.we(instr_wr_en_latched)
 		);
     
     //registers for IF/ID
     reg [31:0] if_id;
-    always @(posedge clk or posedge rst) begin
-        if (rst) if_id <= 32'b0;
-        else     if_id <= instr_mem_out; // Packs incoming instruction into the IF/ID stage register
-    end
+    always @(posedge clk or posedge rst)
+    if (rst)
+        if_id <= 0;
+    else if (exec_mode)
+        if_id <= instr_mem_out;
+        
+	 // otherwise no assignment → register holds value
     
     //STAGE 2: ID
     //INIT
@@ -129,11 +145,13 @@ module pipeline_datapath_skeleton(
     reg [4:0]  id_ex_shift;
     reg        id_ex_WRegEn, id_ex_WMemEn, id_ex_is_load;
     reg [2:0]  id_ex_WR1;
-    
+
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             id_ex_WRegEn <= 0; id_ex_WMemEn <= 0; id_ex_is_load <= 0;
-        end else begin
+        end 
+		  
+		  else if (exec_mode) begin
             id_ex_r1       <= rf_r1;
             id_ex_r2       <= rf_r2;
             id_ex_alu_ctrl <= alu_ctrl;
@@ -143,6 +161,7 @@ module pipeline_datapath_skeleton(
             id_ex_WR1      <= WR1;
             id_ex_is_load  <= id_is_load; 
         end
+				// Freeze
     end
     
 	 /*
@@ -168,7 +187,9 @@ module pipeline_datapath_skeleton(
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             ex_me_WRegEn <= 0; ex_me_WMemEn <= 0;
-        end else begin
+        end 
+		  
+		  else if (exec_mode) begin
             //ex_me_result  <= alu_out;
             ex_me_r1		  <= id_ex_r1;
             ex_me_r2      <= id_ex_r2;
@@ -206,7 +227,7 @@ module pipeline_datapath_skeleton(
 		mem_wb_WRegEn <= 0;
 		wb_data <= 0;
 		end
-		else begin
+		else if (exec_mode) begin
 			mem_wb_WMemEn <= ex_me_WMemEn;
 			mem_wb_WR1 <= ex_me_WR1;
 			mem_wb_WRegEn <= ex_me_WRegEn;
