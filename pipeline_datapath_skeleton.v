@@ -42,6 +42,7 @@ module pipeline_datapath_skeleton(
 	 reg exec_mode_delay;
 	 reg pc_halt_delay;
 	 reg cpu_enable;
+	 reg [31:0] if_id;
 	 
 	 // Stage registers MEM / WB
 	 reg mem_wb_WMemEn;
@@ -180,7 +181,7 @@ module pipeline_datapath_skeleton(
 					// freeze PC during program_mode (observing a delayed halt)
 					if (cpu_enable)		// If not in halted (program) state, count up
 						pc <= pc + 1;  // PC from cycle 0
-					mem_data_read_reg <= instr_mem_out; // pass internal signal from the instruction memory to external reg
+					mem_data_read_reg <= if_id; // pass internal signal from the instruction memory to external reg
 				end
 		  end	
     end
@@ -195,7 +196,6 @@ module pipeline_datapath_skeleton(
 		);
     
     //registers for IF/ID
-    reg [31:0] if_id;
     always @(posedge clk or posedge rst)
     if (rst)
         if_id <= 0;
