@@ -27,16 +27,36 @@
 			<nf:type>generic_hardware32</nf:type>
 		</nf:register>
             <nf:register>
-          <nf:name>ILA_data_low</nf:name>
+          <nf:name>ILA0_data_low</nf:name>
             <nf:description>Logic Analyzers Register</nf:description>
             <nf:type>generic_hardware32</nf:type>
         </nf:register>
             <nf:register>
-          <nf:name>ILA_data_high</nf:name>
+          <nf:name>ILA0_data_high</nf:name>
             <nf:description>Logic Analyzers Register</nf:description>
             <nf:type>generic_hardware32</nf:type>
         </nf:register>
-		        <nf:register>
+			<nf:register>
+          <nf:name>ILA1_data_low</nf:name>
+            <nf:description>Logic Analyzers Register</nf:description>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+            <nf:register>
+          <nf:name>ILA1_data_high</nf:name>
+            <nf:description>Logic Analyzers Register</nf:description>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+			<nf:register>
+          <nf:name>ILA2_data_low</nf:name>
+            <nf:description>Logic Analyzers Register</nf:description>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+            <nf:register>
+          <nf:name>ILA2_data_high</nf:name>
+            <nf:description>Logic Analyzers Register</nf:description>
+            <nf:type>generic_hardware32</nf:type>
+        </nf:register>
+			<nf:register>
           <nf:name>MEM_addr</nf:name>
             <nf:description>Memory Address Register</nf:description>
             <nf:type>generic_software32</nf:type>
