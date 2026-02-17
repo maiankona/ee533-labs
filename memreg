@@ -74,7 +74,7 @@ sub usage {
 }
 
 # parsing the input
-my $cmd = $ARGV[0];
+my $cmd = $ARGV[0] || "";
 my $numargs = $#ARGV + 1;
 
 if ($cmd eq "read") {
