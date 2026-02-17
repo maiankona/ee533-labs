@@ -25,6 +25,10 @@ sub regread {
    return $result;
 }
 
+sub regreset {
+   regwrite($MEM_CMD_REG, 0x0);
+}
+
 # start memory helper functions
 sub imemwrite {
     my ($addr, $data) = @_;
@@ -58,8 +62,9 @@ sub dmemread {
 sub usage {
    print "Usage: memreg <cmd> <cmd options>\n";
    print "  Commands:\n";
-   print "    read [select mem] [address]            read from memory (0 for I-mem, 1 for D-mem) from a specified address \n";
-   print "    write [select mem] [address] [data]   write data into memory (0 for I-mem, 1 for D-mem) to a specified address \n";
+   print "      read [select mem] [address]            read from memory (0 for I-mem, 1 for D-mem) from a specified address\n";
+   print "      write [select mem] [address] [data]    write data into memory (0 for I-mem, 1 for D-mem) to a specified address\n";
+   print "      reset                                  resets the commands register\n";
 }
 
 # parsing the input
@@ -100,6 +105,9 @@ elsif($cmd eq "write") {
    elsif($ARGV[1] == 1) { # D-mem
       dmemwrite($addr, $data);
    }
+}
+elsif($cmd eq "reset") {
+   regreset();
 }
 else {
    print "Unrecognized command $cmd\n";
