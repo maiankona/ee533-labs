@@ -118,5 +118,5 @@ elsif($cmd eq "reset") {
 else {
    print "Unrecognized command $cmd\n";
    usage();
-   exit(1)
+   exit(1);
 }
