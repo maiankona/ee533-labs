@@ -48,28 +48,22 @@ module pipeline_tb;
 	initial begin
 		// Initialize Inputs
 		clk = 0;
-		rst = 0;
-		mem_cmd_reg_in_tb = 6'b000000;
+		rst = 1;
+		mem_cmd_reg_in_tb = 8'b00000000; // Halt CPU
 		mem_addr_reg_tb =32'h00000000;
 		mem_data_write_reg_tb =32'h00000000; 
 
 		//
-		#5;
-      rst = 1;
-		
-		//
-		#5;
+		#10;
       rst = 0;
-		//
-		#65
-		mem_cmd_reg_in_tb = 6'b100000; // write to instruction data (must be at least 50 ns)		
+		mem_cmd_reg_in_tb = 8'b0100000; // write to instruction data (must be at least two full clock cycles (100 ns) after a reset)		
 		mem_addr_reg_tb =32'h00000002;
 		mem_data_write_reg_tb =32'hFFFFFFFF;
 			
 		#50;
-		mem_addr_reg_tb =32'h00000002;
-		mem_data_write_reg_tb =32'hFFFFFFFF;
-		mem_cmd_reg_in_tb = 6'b000000; // stop writing to instruction data (must be at least 50 ns later)
+		mem_addr_reg_tb =32'h00000000;
+		mem_data_write_reg_tb =32'h00000000;
+		mem_cmd_reg_in_tb = 8'b10000000; // stop writing to instruction data (must last at least one full clock cycle (50 ns) later)
 
 		
 		//
