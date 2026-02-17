@@ -2,10 +2,10 @@
 use lib "/usr/local/netfpga/lib/Perl5";
 use strict;
 
-my $MEM_ADDR_REG = 0x2000228; # continuing from idsreg script
+my $MEM_ADDR_REG = 0x2000228; # continuing from idsreg + ILA script
 my $MEM_DATA_READ = 0x200022c;
 my $MEM_DATA_WRITE = 0x2000230;
-my $MEM_CMD_REG = 0x2000208; # shared with ila, bit 5 set = imem, bit 6 set = dmem
+my $MEM_CMD_REG = 0x2000208; # shared with ila and ids cmd, bit 5 set = imem, bit 6 set = dmem
 
 sub regwrite {
    my( $addr, $value ) = @_;
@@ -30,27 +30,27 @@ sub imemwrite {
     my ($addr, $data) = @_;
     regwrite($MEM_ADDR_REG, $addr);
     regwrite($MEM_DATA_WRITE, $data);
-    $MEM_CMD_REG |= 1 << 6;  # set reg[5]
+    regwrite($MEM_CMD_REG, 1 << 5);  # set reg[5]
 }
 
 sub dmemwrite {
     my ($addr, $data) = @_;
     regwrite($MEM_ADDR_REG, $addr);
     regwrite($MEM_DATA_WRITE, $data);
-    $MEM_CMD_REG |= 1 << 7;  # set reg[6]
+    regwrite($MEM_CMD_REG, 1 << 6);  # set reg[6]
 }
 
 sub imemread {
     my ($addr) = @_;
     regwrite($MEM_ADDR_REG, $addr);
-    $MEM_CMD_REG |= 1 << 6;  # set reg[5]
+    regwrite($MEM_CMD_REG, 1 << 5);  # set reg[5]
     return regread($MEM_DATA_READ);
 }
 
 sub dmemread {
     my ($addr) = @_;
     regwrite($MEM_ADDR_REG, $addr);
-    $MEM_CMD_REG |= 1 << 7;  # set reg[6]
+    regwrite($MEM_CMD_REG, 1 << 6);  # set reg[6]
     return regread($MEM_DATA_READ);
 }
 # end memory helper functions
@@ -58,8 +58,8 @@ sub dmemread {
 sub usage {
    print "Usage: memreg <cmd> <cmd options>\n";
    print "  Commands:\n";
-   print "    read [select mem] [address]            read from memory (0 for I-mem, 1 for D-mem) from a specified address";
-   print "    write [select mem] [address] [data]   write data into memory (0 for I-mem, 1 for D-mem) to a specified address";
+   print "    read [select mem] [address]            read from memory (0 for I-mem, 1 for D-mem) from a specified address \n";
+   print "    write [select mem] [address] [data]   write data into memory (0 for I-mem, 1 for D-mem) to a specified address \n";
 }
 
 # parsing the input
@@ -74,11 +74,14 @@ if ($cmd eq "read") {
    }
 
    # reading from memory
-   if ($ARGV[1] eq 0) { # I-mem
-      imemread(ARGV[2]);
+   my $addr = $ARGV[2];
+   if ($ARGV[1] == 0) { # I-mem
+      my $data = imemread($addr);
+      printf("I-Mem[%d] = 0x%08x\n", $addr, $data);
    }
-   elsif($ARGV[1] eq 1) { # D-mem
-      dmemread(ARGV[2]);
+   elsif($ARGV[1] == 1) { # D-mem
+      my $data = dmemread($addr);
+      printf("D-Mem[%d] = 0x%08x\n", $addr, $data);
    }
 }
 elsif($cmd eq "write") {
@@ -89,11 +92,13 @@ elsif($cmd eq "write") {
       }
 
    # writing to memory
-   if ($ARGV[1] eq 0) { # I-mem
-      imemwrite(ARGV[2], ARGV[3]);
+   my $addr = $ARGV[2];
+   my $data = hex($ARGV[3]);
+   if ($ARGV[1] == 0) { # I-mem
+      imemwrite($aadr, $data);
    }
-   elsif($ARGV[1] eq 1) { # D-mem
-      dmemread(ARGV[2], ARGV[3]);
+   elsif($ARGV[1] == 1) { # D-mem
+      dmemwrite($addr, $data);
    }
 }
 else {
