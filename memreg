@@ -1,0 +1,103 @@
+#!/usr/bin/perl -w
+use lib "/usr/local/netfpga/lib/Perl5";
+use strict;
+
+my $MEM_ADDR_REG = 0x2000228; # continuing from idsreg script
+my $MEM_DATA_READ = 0x200022c;
+my $MEM_DATA_WRITE = 0x2000230;
+my $MEM_CMD_REG = 0x2000208; # shared with ila, bit 5 set = imem, bit 6 set = dmem
+
+sub regwrite {
+   my( $addr, $value ) = @_;
+   my $cmd = sprintf( "regwrite $addr 0x%08x", $value );
+   my $result = `$cmd`;
+   # print "Ran command '$cmd' and got result '$result'\n";
+}
+
+sub regread {
+   my( $addr ) = @_;
+   my $cmd = sprintf( "regread $addr" );
+   my @out = `$cmd`;
+   my $result = $out[0];
+   if ( $result =~ m/Reg (0x[0-9a-f]+) \((\d+)\):\s+(0x[0-9a-f]+) \((\d+)\)/ ) {
+      $result = $3;
+   }
+   return $result;
+}
+
+# start memory helper functions
+sub imemwrite {
+    my ($addr, $data) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    regwrite($MEM_DATA_WRITE, $data);
+    $MEM_CMD_REG |= 1 << 6;  # set reg[5]
+}
+
+sub dmemwrite {
+    my ($addr, $data) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    regwrite($MEM_DATA_WRITE, $data);
+    $MEM_CMD_REG |= 1 << 7;  # set reg[6]
+}
+
+sub imemread {
+    my ($addr) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    $MEM_CMD_REG |= 1 << 6;  # set reg[5]
+    return regread($MEM_DATA_READ);
+}
+
+sub dmemread {
+    my ($addr) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    $MEM_CMD_REG |= 1 << 7;  # set reg[6]
+    return regread($MEM_DATA_READ);
+}
+# end memory helper functions
+
+sub usage {
+   print "Usage: memreg <cmd> <cmd options>\n";
+   print "  Commands:\n";
+   print "    read [select mem] [address]            read from memory (0 for I-mem, 1 for D-mem) from a specified address";
+   print "    write [select mem] [address] [data]   write data into memory (0 for I-mem, 1 for D-mem) to a specified address";
+}
+
+# parsing the input
+my $cmd = $ARGV[0];
+my $numargs = $#ARGV + 1;
+
+if ($cmd eq "read") {
+   # error handling
+   if( $numargs < 3 ) {
+      usage();
+      exit(1);
+   }
+
+   # reading from memory
+   if ($ARGV[1] eq 0) { # I-mem
+      imemread(ARGV[2]);
+   }
+   elsif($ARGV[1] eq 1) { # D-mem
+      dmemread(ARGV[2]);
+   }
+}
+elsif($cmd eq "write") {
+   # error handling
+      if( $numargs < 4 ) {
+         usage();
+         exit(1);
+      }
+
+   # writing to memory
+   if ($ARGV[1] eq 0) { # I-mem
+      imemwrite(ARGV[2], ARGV[3]);
+   }
+   elsif($ARGV[1] eq 1) { # D-mem
+      dmemread(ARGV[2], ARGV[3]);
+   }
+}
+else {
+   print "Unrecognized command $cmd\n";
+   usage();
+   exit(1)
+}
