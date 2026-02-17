@@ -115,44 +115,6 @@ module user_datapath
 
    //------------------------- Modules-------------------------------
 
-   fallthrough_small_fifo #(
-      .WIDTH(CTRL_WIDTH+DATA_WIDTH),
-      .MAX_DEPTH_BITS(2)
-   ) input_fifo (
-      .din           ({in_ctrl, in_data}),   // Data in
-      .wr_en         (in_wr),                // Write enable
-      .rd_en         (in_fifo_rd_en),        // Read the next word 
-      .dout          ({in_fifo_ctrl, in_fifo_data}),
-      .full          (),
-      .nearly_full   (in_fifo_nearly_full),
-      .empty         (in_fifo_empty),
-      .reset         (reset),
-      .clk           (clk)
-   );
-
-   detect7B matcher (
-      .ce            (matcher_ce),           // data enable
-      .match_en      (matcher_en),           // match enable
-      .clk           (clk),
-      .pipe1         ({in_ctrl, in_data}),   // Data in
-      .hwregA        ({pattern_high, pattern_low}),   // pattern in
-      .match         (matcher_match),        // match out
-      .mrst          (matcher_reset)         // reset in
-   );
-
-   dropfifo drop_fifo (
-      .clk           (clk), 
-      .drop_pkt      (matcher_match && end_of_pkt), 
-      .fiforead      (out_rdy), 
-      .fifowrite     (out_wr_int), 
-      .firstword     (begin_pkt), 
-      .in_fifo       ({in_fifo_ctrl,in_fifo_data}), 
-      .lastword      (end_of_pkt), 
-      .rst           (reset), 
-      .out_fifo      ({out_ctrl,out_data}), 
-      .valid_data    (out_wr)
-   );
-   
 
    generic_regs
    #( 
@@ -160,8 +122,8 @@ module user_datapath
       .TAG                 (`IDS_BLOCK_ADDR),          
       .REG_ADDR_WIDTH      (`IDS_REG_ADDR_WIDTH),     
       .NUM_COUNTERS        (0),                 
-	   .NUM_SOFTWARE_REGS   (5),   // from 3 to 5 -Maia              
-	   .NUM_HARDWARE_REGS   (4)  // from 3 to 4 -Maia                
+	  .NUM_SOFTWARE_REGS   (5),   // from 3 to 5 -Maia              
+	  .NUM_HARDWARE_REGS   (4)  // from 3 to 4 -Maia                
    ) module_regs (
       .reg_req_in       (reg_req_in),
       .reg_ack_in       (reg_ack_in),
@@ -203,7 +165,7 @@ module user_datapath
 	 
 	 		// --- Logic Analyzer
 		
-		ILA ILA0 (
+		/*ILA ILA0 (
 		.clk(clk),
 		.reset(reset),
 		.data_in(ILA_in),
@@ -214,6 +176,7 @@ module user_datapath
 		.empty(ILA_empty),
 		.full()	
 		);
+		*(/
 
    //------------------------- Logic-------------------------------
    
