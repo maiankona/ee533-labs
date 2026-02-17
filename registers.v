@@ -414,9 +414,9 @@
 // Name: memory interface
 // Description: Registers for memory interface
 // File: not sure yet
-`define MEM_ADDR_REG   4'h10  
-`define MEM_DATA_WRITE 4'h11 
-`define MEM_DATA_READ  4'h12  
+`define MEM_ADDR_REG   4'ha  
+`define MEM_DATA_WRITE 4'hb 
+`define MEM_DATA_READ  4'hc  
 
 // Name: in_arb
 // Description: Round-robin input arbiter
