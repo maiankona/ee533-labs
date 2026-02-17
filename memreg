@@ -29,6 +29,27 @@ sub regreset {
    regwrite($MEM_CMD_REG, 0x0);
 }
 
+sub parsedata {
+    my ($str) = @_;
+    
+    # If it starts with 0x, treat as hex
+    if ($str =~ m/^0x([0-9a-f]+)$/i) {
+        return hex($1);
+    }
+    # If it's all hex digits, treat as hex
+    elsif ($str =~ m/^[0-9a-f]+$/i) {
+        return hex($str);
+    }
+    # Otherwise, convert ASCII string to hex
+    else {
+        my $val = 0;
+        my @chars = split(//, $str);
+        for (my $i = 0; $i < 4 && $i <= $#chars; $i++) {
+            $val |= (ord($chars[$i]) << (8 * (3 - $i)));
+        }
+        return $val;
+    }
+}
 # start memory helper functions
 sub imemwrite {
     my ($addr, $data) = @_;
@@ -84,11 +105,11 @@ if ($cmd eq "read") {
    my $addr = $ARGV[2];
    if ($ARGV[1] == 0) { # I-mem
       my $data = imemread($addr);
-      printf("I-Mem[%d] = 0x%08x\n", $addr, $data);
+      printf("I-Mem[$addr] = $data\n");
    }
    elsif($ARGV[1] == 1) { # D-mem
       my $data = dmemread($addr);
-      printf("D-Mem[%d] = 0x%08x\n", $addr, $data);
+      printf("D-Mem[$addr] = $data\n");
    }
 }
 elsif($cmd eq "write") {
@@ -100,7 +121,7 @@ elsif($cmd eq "write") {
 
    # writing to memory
    my $addr = $ARGV[2];
-   my $data = hex($ARGV[3]);
+   my $data = parsedata($ARGV[3]));
    if ($ARGV[1] == 0) { # I-mem
       imemwrite($addr, $data);
    }
