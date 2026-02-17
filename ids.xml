@@ -51,11 +51,6 @@
             <nf:description>Memory Data Read Register</nf:description>
             <nf:type>generic_hardware32</nf:type>
         </nf:register>
-		<nf:register>
-          <nf:name>MEM_command</nf:name>
-            <nf:description>Memory Command Register</nf:description>
-            <nf:type>generic_software32</nf:type>
-        </nf:register>
 	</nf:registers>
 </nf:module>
 
