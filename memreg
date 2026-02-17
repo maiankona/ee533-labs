@@ -121,7 +121,7 @@ elsif($cmd eq "write") {
 
    # writing to memory
    my $addr = $ARGV[2];
-   my $data = parsedata($ARGV[3]));
+   my $data = parsedata($ARGV[3]);
    if ($ARGV[1] == 0) { # I-mem
       imemwrite($addr, $data);
    }
