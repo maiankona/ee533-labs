@@ -248,6 +248,8 @@
 // -------------------------------------
 
 // Tag/address widths
+`define IDS_BLOCK_ADDR_WIDTH            19
+`define IDS_REG_ADDR_WIDTH              4
 `define CORE_BLOCK_ADDR_WIDTH           1
 `define CORE_REG_ADDR_WIDTH             22
 `define CPU_QUEUE_BLOCK_ADDR_WIDTH      4
@@ -289,6 +291,7 @@
 `define SRAM_BLOCK_ADDR           1'h1
 `define UDP_BLOCK_ADDR            1'h1
 `define ROUTER_OP_LUT_BLOCK_ADDR  17'h00000
+`define IDS_BLOCK_ADDR            19'h0000c
 `define IN_ARB_BLOCK_ADDR         17'h00001
 `define OQ_BLOCK_ADDR             13'h0001
 `define DRAM_BLOCK_ADDR           1'h1
