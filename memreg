@@ -3,8 +3,8 @@ use lib "/usr/local/netfpga/lib/Perl5";
 use strict;
 
 my $MEM_ADDR_REG = 0x2000228; # continuing from idsreg + ILA script
-my $MEM_DATA_READ = 0x200022c;
-my $MEM_DATA_WRITE = 0x2000230;
+my $MEM_DATA_WRITE = 0x200022c;
+my $MEM_DATA_READ = 0x2000230;
 my $MEM_CMD_REG = 0x2000208; # shared with ila and ids cmd, bit 5 set = imem, bit 6 set = dmem
 
 sub regwrite {
