@@ -35,8 +35,6 @@ sub imemwrite {
     regwrite($MEM_ADDR_REG, $addr);
     regwrite($MEM_DATA_WRITE, $data);
     regwrite($MEM_CMD_REG, 1 << 5);  # set reg[5]
-    my $curr = regread($MEM_CMD_REG);
-    regwrite($MEM_CMD_REG, $curr & ~(1 << 7)); # clearing cpu_halt signal
 }
 
 sub dmemwrite {
@@ -44,8 +42,6 @@ sub dmemwrite {
     regwrite($MEM_ADDR_REG, $addr);
     regwrite($MEM_DATA_WRITE, $data);
     regwrite($MEM_CMD_REG, 1 << 6);  # set reg[6]
-    my $curr = regread($MEM_CMD_REG);
-    regwrite($MEM_CMD_REG, $curr & ~(1 << 7)); # clearing cpu_halt signal
 }
 
 sub imemread {
