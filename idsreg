@@ -2,10 +2,10 @@
 use lib "/usr/local/netfpga/lib/Perl5";
 use strict;
 
-my $IDS_PATTERN_HI_REG = 0x2000300;
-my $IDS_PATTERN_LO_REG = 0x2000304;
-my $IDS_COMMAND_REG = 0x2000308;
-my $IDS_MATCHES_REG = 0x200030c;
+my $IDS_PATTERN_HI_REG = 0x2000200;
+my $IDS_PATTERN_LO_REG = 0x2000204;
+my $IDS_COMMAND_REG = 0x2000208;
+my $IDS_MATCHES_REG = 0x200020c;
 
 sub regwrite {
    my( $addr, $value ) = @_;
