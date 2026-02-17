@@ -404,8 +404,12 @@
 `define IDS_IDS_CMD       4'h2
 `define IDS_MATCHES       4'h3
 
-`define ILA_DATA_HIGH     4'h4
-`define ILA_DATA_LOW      4'h5
+`define ILA0_DATA_HIGH     4'h4
+`define ILA0_DATA_LOW      4'h5
+`define ILA1_DATA_HIGH     4'h6
+`define ILA1_DATA_LOW      4'h7
+`define ILA2_DATA_HIGH     4'h8
+`define ILA2_DATA_LOW      4'h9
 
 // Name: memory interface
 // Description: Registers for memory interface
