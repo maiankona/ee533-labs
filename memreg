@@ -106,7 +106,7 @@ elsif($cmd eq "write") {
    my $addr = $ARGV[2];
    my $data = hex($ARGV[3]);
    if ($ARGV[1] == 0) { # I-mem
-      imemwrite($aadr, $data);
+      imemwrite($addr, $data);
    }
    elsif($ARGV[1] == 1) { # D-mem
       dmemwrite($addr, $data);
