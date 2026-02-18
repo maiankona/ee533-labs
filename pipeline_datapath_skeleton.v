@@ -41,7 +41,6 @@ module pipeline_datapath_skeleton(
 	 reg [31:0] prog_instr_mem_in;	// registered instr memory address
 	 reg exec_mode_delay;
 	 reg pc_halt_delay;
-	 reg cpu_enable;
 	 reg [31:0] if_id;
 	 
 	 // Stage registers MEM / WB
@@ -72,7 +71,7 @@ module pipeline_datapath_skeleton(
 	 wire instr_wr_pulse_enable;    // gated pulse (unused for final .we, but preserved)
 	 wire data_wr_pulse;
 	 wire [31:0] imem_addr;
-	 wire CPU_halt;
+	 wire cpu_enable;
 	 
     wire [31:0] instr_mem_out;
     wire [31:0] instr_mem_in;
@@ -86,7 +85,7 @@ module pipeline_datapath_skeleton(
     assign command_in = mem_cmd_reg;    // receives command from outside
     assign instr_wr_en = command_in[5]; // writes into instr. mem if bit-5 = 0
     assign data_wr_en = command_in[6]; // writes into data. mem if bit-6 = 1
-    assign CPU_halt = ~mem_cmd_reg[7];
+    assign cpu_enable = mem_cmd_reg[7]; // If low, halt CPU
     assign instr_mem_in = mem_data_write_reg;   // internal instr from user-SW
 	 assign data_mem_in = mem_data_write_reg;
 	 /* imem_addr selects program address while the delayed program-mode pulse is active,
@@ -99,7 +98,6 @@ module pipeline_datapath_skeleton(
 	 assign local_mem_addr = prog_data_mem_addr;
 
 	 assign program_mode = instr_wr_pulse_d;   // <-- use delayed pulse here
-	 assign pc_halt = program_mode;
 	 assign exec_mode = ~program_mode;
 	 /* edge detect: instr_wr_pulse is 1 clock when SW asserted instr_wr_en.
 	    instr_wr_pulse_enable gates that pulse until reset_cnt has reached 2. */
@@ -120,15 +118,12 @@ module pipeline_datapath_skeleton(
 				instr_wr_pulse_if_id <= 1'b0;
 				exec_mode_delay <= 1'b0;
             instr_wr_pulse_d <= 1'b0;
-				pc_halt_delay <= 1'b0;
-				cpu_enable <= 1'b0;
+//				pc_halt_delay <= 1'b0;
             // new regs init:
             prog_valid <= 1'b0;
             instr_wr_we_reg <= 1'b0;
 		  end
 		  else begin
-				if (~CPU_halt)
-					 cpu_enable <= 1'b1; 
 
 				// synchronization of incoming SW control bit
 				instr_wr_en_latched <= instr_wr_en;
@@ -137,7 +132,7 @@ module pipeline_datapath_skeleton(
                 
             // update delayed pulse (one-cycle delay) from the ENABLED pulse
             instr_wr_pulse_d <= instr_wr_pulse_enable;
-				pc_halt_delay <= pc_halt;
+//				pc_halt_delay <= pc_halt;
 				
 				if (instr_wr_en && !cpu_enable) begin
 				    prog_instr_mem_addr <= mem_addr_reg;
