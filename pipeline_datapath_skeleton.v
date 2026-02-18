@@ -202,7 +202,7 @@ module pipeline_datapath_skeleton(
     else if (exec_mode_delay)
         if_id <= instr_mem_out;
         
-	 // otherwise no assignment → register holds value
+	 // otherwise no assignment ? register holds value
     
     //STAGE 2: ID
     //INIT

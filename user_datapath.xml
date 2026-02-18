@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nf:module xmlns:nf="http://www.NetFPGA.org/NF2_register_system" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.NetFPGA.org/NF2_register_system NF2_register_system.xsd ">
+	<nf:name>user_datapath</nf:name>
+	<nf:prefix>user_datapath</nf:prefix>
+	<nf:location>udp</nf:location>
+	<nf:description>Registers for UDP</nf:description>
+	<nf:blocksize>64</nf:blocksize>
+    <nf:registers>
+      <!-- SOFTWARE REGS -->
+
+      <nf:register>
+        <nf:name>mem_data_write</nf:name>
+        <nf:type>generic_software32</nf:type>
+      </nf:register>
+
+      <nf:register>
+        <nf:name>mem_addr</nf:name>
+        <nf:type>generic_software32</nf:type>
+      </nf:register>
+
+      <nf:register>
+        <nf:name>mem_cmd</nf:name>
+        <nf:type>generic_software32</nf:type>
+      </nf:register>
+
+      <!-- HARDWARE REGS -->
+
+      <nf:register>
+        <nf:name>mem_data_read</nf:name>
+        <nf:type>generic_hardware32</nf:type>
+      </nf:register>
+
+    </nf:registers>
+    
+</nf:module>

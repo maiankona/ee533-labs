@@ -79,7 +79,7 @@ module user_datapath
 	wire [31:0]                   mem_addr; //sw
 	wire [31:0]                   mem_data_write; //sw
 	wire [31:0]                   mem_cmd; //sw
-	assign mem_cmd = ids_cmd;
+	//assign mem_cmd = ids_cmd;
 	reg [31:0]                    mem_data_read; //hw
 	
    // internal state
@@ -122,8 +122,8 @@ module user_datapath
       .TAG                 (`IDS_BLOCK_ADDR),          
       .REG_ADDR_WIDTH      (`IDS_REG_ADDR_WIDTH),     
       .NUM_COUNTERS        (0),                 
-	  .NUM_SOFTWARE_REGS   (5),   // from 3 to 5 -Maia              
-	  .NUM_HARDWARE_REGS   (4)  // from 3 to 4 -Maia                
+	  .NUM_SOFTWARE_REGS   (3),   // from 3 to 5 -Maia              
+	  .NUM_HARDWARE_REGS   (1)  // from 3 to 4 -Maia                
    ) module_regs (
       .reg_req_in       (reg_req_in),
       .reg_ack_in       (reg_ack_in),
@@ -144,10 +144,10 @@ module user_datapath
       .counter_decrement(),
 
       // --- SW regs interface
-	   .software_regs    ({mem_data_write, mem_addr,ids_cmd,pattern_low,pattern_high}),
+	   .software_regs    ({mem_data_write, mem_addr,mem_cmd}),
 
       // --- HW regs interface
-	   .hardware_regs    ({mem_data_read, ILA_data[63:32],ILA_data[31:0],matches}),
+	   .hardware_regs    ({mem_data_read}),
 
       .clk              (clk),
       .reset            (reset)
@@ -160,7 +160,7 @@ module user_datapath
     .mem_addr_reg(mem_addr),
     .mem_data_write_reg(mem_data_write),
     .mem_data_read_reg(mem_data_read),
-		.mem_cmd_reg(mem_cmd)
+	 .mem_cmd_reg(mem_cmd)
 );
 	 
 	 		// --- Logic Analyzer
@@ -176,10 +176,10 @@ module user_datapath
 		.empty(ILA_empty),
 		.full()	
 		);
-		*(/
+		*/
 
    //------------------------- Logic-------------------------------
-   
+  /* 
    always @(*) begin
       state_next = state;
       matches_next = matches;
@@ -228,6 +228,7 @@ module user_datapath
          endcase
       end
    end
+*/
    
    always @(posedge clk) begin
       if(reset) begin
