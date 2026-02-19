@@ -1,6 +1,23 @@
 # script that converts assembly programs to machine code
-C → assembly		arm-none-eabi-gcc -S bubbleSort.c
-assembly → object	arm-none-eabi-as bubbleSort.s -o bubbleSort.o
-object → opcodes	arm-none-eabi-objdump -d bubbleSort.o
-object → raw binary	arm-none-eabi-objcopy -O binary bubbleSort.elf bubbleSort.bin
-viewable binary  xxd -b bubbleSort.bin > bubbleSortBin.txt
+# C → assembly		arm-none-eabi-gcc -S bubbleSort.c
+# assembly → object	arm-none-eabi-as bubbleSort.s -o bubbleSort.o
+# object → opcodes	arm-none-eabi-objdump -d bubbleSort.o
+# object → raw binary	arm-none-eabi-objcopy -O binary bubbleSort.elf bubbleSort.bin
+# viewable binary  xxd -b bubbleSort.bin > bubbleSortBin.txt
+
+#!/bin/bash
+
+# C → ARM assembly
+arm-none-eabi-gcc -S -O0 $1.c -o $1.s
+
+# object → opcodes
+arm-none-eabi-gcc -c $1.s -o $1.o
+arm-none-eabi-objdump -d $1.o > $1_opcodes.txt
+
+# translate to custom format
+python3 arm2custom.py $1.s
+
+echo "Generated files:"
+echo "  $1.s         - ARM assembly"
+echo "  $1_opcodes.txt   - ARM disassembly"
+echo "  $1_custom.txt - Our custom format"
