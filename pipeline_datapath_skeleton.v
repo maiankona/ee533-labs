@@ -99,8 +99,7 @@ module pipeline_datapath_skeleton(
 
 	 // PC Mux (P&H style): next PC = PC+4 or branch target
 	 wire [31:0] pc_plus_1 = pc + 1;
-	 wire [31:0] branch_target = if_id_pc_plus_1 + (sign_ext_imm << 2);  // branching logic ID stage for future branch
-	 wire PCSrc = 1'b0;   // tie off until branch logic is added
+	 wire [31:0] branch_target = if_id_pc_plus_1 + sign_ext_imm; 
 	 wire [31:0] next_pc = PCSrc ? branch_target : pc_plus_1;
     
 	 assign local_WMemEn = data_wr_en ?  data_wr_en : ex_me_WMemEn; 
@@ -239,6 +238,16 @@ module pipeline_datapath_skeleton(
     // ALUSrc: select second ALU operand (0 = Read data 2, 1 = sign-extended immediate)
     wire ALUSrc = if_id[16];
 
+	// branching logic
+	wire branch;
+	wire jump;
+	assign branch = if_id[]; // branch if which bit is high?
+	assign jump = if_id[]; // jump if which bit is high?
+
+	wire branch_eq = (rf_r1 == rf_r2); // BEQ
+	wire branch_taken = branch & branch_eq; 
+	wire PCSrc = branch_taken | jump; 
+	
     // Added is_load logic for downstream Mux
     wire id_is_load = (WRegEn == 1'b1 && WMemEn == 1'b0); //SO IS_LOAD IS INTENDED LOGIC FOR THE LOAD INSTRUCTIONS
     wire negEdgeClk;
@@ -356,3 +365,4 @@ module pipeline_datapath_skeleton(
 	
 
 endmodule
+
