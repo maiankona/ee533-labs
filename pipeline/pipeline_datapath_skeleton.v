@@ -238,15 +238,21 @@ module pipeline_datapath_skeleton(
     // ALUSrc: select second ALU operand (0 = Read data 2, 1 = sign-extended immediate)
     wire ALUSrc = if_id[16];
 
-	// branching logic
-	wire branch;
-	wire jump;
-	assign branch = if_id[]; // branch if which bit is high?
-	assign jump = if_id[]; // jump if which bit is high?
-
-	wire branch_eq = (rf_r1 == rf_r2); // BEQ
-	wire branch_taken = branch & branch_eq; 
-	wire PCSrc = branch_taken | jump; 
+	// Add new bit for branch enable
+	wire branch = if_id[25];  // New: bit 25 = branch enable
+	wire branchType = if_id[24];  // New: bit 24 = branch type (0=BEQ, 1=BLT, etc.)
+	
+	// Branch logic
+	wire zero = (rf_r1 == rf_r2);
+	wire less_than = ($signed(rf_r1) < $signed(rf_r2));
+	
+	wire branch_taken = branch & ((branchType == 0 & zero) |      // BEQ
+								  (branchType == 1 & less_than));  // BLT
+	
+	wire PCSrc = branch_taken;
+	
+	// Branch target: PC + sign_ext_imm
+	wire [31:0] branch_target = if_id_pc_plus_1 + sign_ext_imm; 
 	
     // Added is_load logic for downstream Mux
     wire id_is_load = (WRegEn == 1'b1 && WMemEn == 1'b0); //SO IS_LOAD IS INTENDED LOGIC FOR THE LOAD INSTRUCTIONS
@@ -365,4 +371,5 @@ module pipeline_datapath_skeleton(
 	
 
 endmodule
+
 
