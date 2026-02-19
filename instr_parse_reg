@@ -1,1 +1,157 @@
 # Perl script that uses memreg to execute bubble sort instructions or any instructions
+#!/usr/bin/perl -w
+use lib "/usr/local/netfpga/lib/Perl5";
+use strict;
+
+my $MEM_ADDR_REG = 0x2000228; # continuing from idsreg + ILA script
+my $MEM_DATA_WRITE = 0x200022c;
+my $MEM_DATA_READ = 0x2000230;
+my $MEM_CMD_REG = 0x2000208; # shared with ila and ids cmd, bit 5 set = imem, bit 6 set = dmem
+
+sub regwrite {
+   my( $addr, $value ) = @_;
+   my $cmd = sprintf( "regwrite $addr 0x%08x", $value );
+   my $result = `$cmd`;
+   # print "Ran command '$cmd' and got result '$result'\n";
+}
+
+sub regread {
+   my( $addr ) = @_;
+   my $cmd = sprintf( "regread $addr" );
+   my @out = `$cmd`;
+   my $result = $out[0];
+   if ( $result =~ m/Reg (0x[0-9a-f]+) \((\d+)\):\s+(0x[0-9a-f]+) \((\d+)\)/ ) {
+      $result = $3;
+   }
+   return $result;
+}
+
+sub regreset {
+   regwrite($MEM_CMD_REG, 0x0);
+}
+
+sub parsedata {
+    my ($str) = @_;
+    
+    # If it starts with 0x, treat as hex
+    if ($str =~ m/^0x([0-9a-f]+)$/i) {
+        return hex($1);
+    }
+    # If it's all hex digits, treat as hex
+    elsif ($str =~ m/^[0-9a-f]+$/i) {
+        return hex($str);
+    }
+    # Otherwise, convert ASCII string to hex
+    else {
+        my $val = 0;
+        my @chars = split(//, $str);
+        for (my $i = 0; $i < 4 && $i <= $#chars; $i++) {
+            $val |= (ord($chars[$i]) << (8 * (3 - $i)));
+        }
+        return $val;
+    }
+}
+# start memory helper functions
+sub imemwrite {
+    my ($addr, $data) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    regwrite($MEM_DATA_WRITE, $data);
+    regwrite($MEM_CMD_REG, 1 << 5);  # set reg[5]
+}
+
+sub dmemwrite {
+    my ($addr, $data) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    regwrite($MEM_DATA_WRITE, $data);
+    regwrite($MEM_CMD_REG, 1 << 6);  # set reg[6]
+}
+
+sub imemread {
+    my ($addr) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    regwrite($MEM_CMD_REG, 1 << 5);  # set reg[5]
+    regwrite($MEM_CMD_REG, 1 << 7); # setting cpu_halt signal
+    return regread($MEM_DATA_READ);
+}
+
+sub dmemread {
+    my ($addr) = @_;
+    regwrite($MEM_ADDR_REG, $addr);
+    regwrite($MEM_CMD_REG, 1 << 6);  # set reg[6]
+    regwrite($MEM_CMD_REG, 1 << 7); # setting cpu_halt signal
+    return regread($MEM_DATA_READ);
+}
+# end memory helper functions
+
+sub usage {
+   print "Usage: memreg <cmd> <cmd options>\n";
+   print "  Commands:\n";
+   print "      read [select mem] [address]            read from memory (0 for I-mem, 1 for D-mem) from a specified address\n";
+   print "      write [select mem] [address] [data]    write data into memory (0 for I-mem, 1 for D-mem) to a specified address\n";
+   print "      reset                                  resets the commands register\n";
+}
+
+# parsing the input
+my $cmd = $ARGV[0] || "";
+my $numargs = $#ARGV + 1;
+
+if ($cmd eq "read") {
+   # error handling
+   if( $numargs < 3 ) {
+      usage();
+      exit(1);
+   }
+
+   # reading from memory
+   my $addr = $ARGV[2];
+   if ($ARGV[1] == 0) { # I-mem
+      my $data = imemread($addr);
+      printf("I-Mem[$addr] = $data\n");
+   }
+   elsif($ARGV[1] == 1) { # D-mem
+      my $data = dmemread($addr);
+      printf("D-Mem[$addr] = $data\n");
+   }
+}
+elsif($cmd eq "write") {
+   # error handling
+      if( $numargs < 4 ) {
+         usage();
+         exit(1);
+      }
+
+   # writing to memory
+   my $addr = $ARGV[2];
+   my $data = parsedata($ARGV[3]);
+   if ($ARGV[1] == 0) { # I-mem
+      imemwrite($addr, $data);
+   }
+   elsif($ARGV[1] == 1) { # D-mem
+      dmemwrite($addr, $data);
+   }
+}
+elsif ($cmd eq "load_program") {
+    my $file = $ARGV[1] || "bubble_sort_custom.txt";
+    open(my $fh, '<', $file) or die "Cannot open $file: $!";
+    
+    my $addr = 0;
+    while (my $line = <$fh>) {
+        next if $line =~ /^#/;  # Skip comments
+        if ($line =~ /^[0-9a-f]+\s+([0-9a-f]{8})/i) {
+            my $data = hex($1);
+            imemwrite($addr, $data);
+            printf("Loaded I-Mem[%d] = 0x%08x\n", $addr, $data);
+            $addr++;
+        }
+    }
+    close($fh);
+    print "Loaded $addr instructions\n";
+}
+elsif($cmd eq "reset") {
+   regreset();
+}
+else {
+   print "Unrecognized command $cmd\n";
+   usage();
+   exit(1);
+}
