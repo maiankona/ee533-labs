@@ -2,266 +2,204 @@
 import re
 import sys
 
-# Our custom instruction format:
-# [31]   [30]    [29:27] [26:24] [23:21] [20:17] [16]   [25]    [24]      [15:0]
-# WMemEn WRegEn  Reg1    Reg2    WReg    ALU_Op  ALUSrc Branch  BrType    offset/imm
-
-# Register mapping (ARM r0-r7 -> our 3-bit registers)
+# ============================
+# REGISTER MAP (ARM → 3-bit)
+# ============================
 REG_MAP = {
-    'r0': '000', 'r1': '001', 'r2': '010', 'r3': '011',
-    'r4': '100', 'r5': '101', 'r6': '110', 'r7': '111',
-    'sp': '111', 'lr': '110', 'r11': '101'  # Map ARM regs to yours
+    'r0': 0, 'r1': 1, 'r2': 2, 'r3': 3,
+    'r4': 4, 'r5': 5, 'r6': 6, 'r7': 7,
+    'sp': 7, 'fp': 5, 'lr': 6
 }
 
-# ALU operation code
-ALU_OPS = {
-    'ADD':  '0000', 'SUB':  '0001', 'AND':  '0010', 'OR':   '0011',
-    'SLL':  '0100', 'SRL':  '0101', 'XNOR': '0110', 'EQ':   '0111',
-    'LT':   '1000', 'GT':   '1001', 'XOR':  '1010', 'STC':  '1011',
-    'SCMP': '1100', 'CMP':  '0001'  # CMP uses SUB
+# ============================
+# OPCODE MAP (matches pipeline alu_ctrl)
+# ============================
+OPCODES = {
+    'ADD': 0b0000,
+    'SUB': 0b0001,
+    'AND': 0b0010,
+    'OR' : 0b0011,
+    'XOR': 0b1010,
+    'SLL': 0b0100,
+    'CMP': 0b0001,   # reuse SUB
 }
 
-def parse_arm_instruction(line):
-    """Parse ARM assembly line into components"""
-    line = line.strip()
-    
-    # Remove comments
-    if '@' in line:
-        line = line.split('@')[0].strip()
+# ============================
+# Instruction Encoder
+# Format:
+# [31]   WMemEn
+# [30]   WRegEn
+# [29:27] Reg1
+# [26:24] Reg2
+# [23:21] WReg
+# [20:17] ALU Op
+# [16]   ALUSrc
+# [25]   Branch
+# [24]   BrType
+# [15:0] Imm
+# ============================
+
+def encode(WMemEn, WRegEn, Reg1, Reg2, WReg, alu, ALUSrc, Branch, BrType, imm):
+    word = 0
+    word |= (WMemEn & 1) << 31
+    word |= (WRegEn & 1) << 30
+    word |= (Reg1  & 0b111) << 27
+    word |= (Reg2  & 0b111) << 24
+    word |= (WReg  & 0b111) << 21
+    word |= (alu   & 0b1111) << 17
+    word |= (ALUSrc & 1) << 16
+    word |= (Branch & 1) << 25
+    word |= (BrType & 1) << 24
+    word |= (imm & 0xFFFF)
+    return word
+
+# ============================
+# Helpers
+# ============================
+def get_reg(x):
+    x = x.lower()
+    if x in REG_MAP:
+        return REG_MAP[x]
+    m = re.match(r"r(\d+)", x)
+    if m:
+        return int(m.group(1)) & 7
+    return 0
+
+def get_imm(x):
+    x = x.replace('#','')
+    if x.startswith('0x'):
+        return int(x,16) & 0xFFFF
+    return int(x) & 0xFFFF
+
+# ============================
+# ARM Parser
+# ============================
+def parse_line(line):
+    line = line.split('@')[0].strip()
     if not line:
         return None
-    
-    # Split instruction and operands
-    parts = re.split(r'[\s,\[\]]+', line)
-    parts = [p for p in parts if p]  # Remove empty strings
-    
-    if not parts:
+    if line.startswith('.') or line.endswith(':'):
         return None
-    
-    instr = parts[0].upper()
-    operands = parts[1:] if len(parts) > 1 else []
-    
-    return {'instr': instr, 'operands': operands, 'original': line}
 
-def get_register(reg_str):
-    """Convert ARM register to 3-bit code"""
-    reg_str = reg_str.lower().strip()
-    if reg_str in REG_MAP:
-        return REG_MAP[reg_str]
-    # Try to extract register number
-    match = re.match(r'r(\d+)', reg_str)
-    if match:
-        num = int(match.group(1))
-        if num < 8:
-            return format(num, '03b')
-    return '000'  # Default to r0
+    parts = re.split(r'[,\s\[\]]+', line)
+    return [p for p in parts if p]
 
-def get_immediate(imm_str):
-    """Extract immediate value and convert to 16-bit binary"""
-    imm_str = imm_str.strip()
-    
-    # Handle #123 format
-    if imm_str.startswith('#'):
-        imm_str = imm_str[1:]
-    
-    # Handle hex
-    if imm_str.startswith('0x'):
-        value = int(imm_str, 16)
-    else:
-        value = int(imm_str)
-    
-    # Convert to 16-bit two's complement
-    if value < 0:
-        value = (1 << 16) + value
-    
-    return format(value & 0xFFFF, '016b')
+# ============================
+# Translator
+# ============================
+def translate(tokens):
+    instr = tokens[0].upper()
+    ops = tokens[1:]
 
-def translate_instruction(parsed):
-    """Translate ARM instruction to custom format"""
-    if not parsed:
-        return None
-    
-    instr = parsed['instr']
-    ops = parsed['operands']
-    
-    # Default values
-    WMemEn = '0'
-    WRegEn = '0'
-    Reg1 = '000'
-    Reg2 = '000'
-    WReg = '000'
-    ALU_Op = '0000'
-    ALUSrc = '0'
-    Branch = '0'
-    BrType = '0'
-    Imm = '0000000000000000'
-    
-    # R-type: ADD, SUB, AND, OR, etc.
-    if instr in ['ADD', 'SUB', 'AND', 'ORR', 'EOR', 'RSB']:
-        WRegEn = '1'
-        WReg = get_register(ops[0])      # Rd
-        Reg1 = get_register(ops[1])      # Rn
-        
-        if ops[2].startswith('#'):  # Immediate
-            ALUSrc = '1'
-            Imm = get_immediate(ops[2])
-        else:  # Register
-            Reg2 = get_register(ops[2])
-        
-        alu_map = {'ADD': 'ADD', 'SUB': 'SUB', 'AND': 'AND', 
-                   'ORR': 'OR', 'EOR': 'XOR', 'RSB': 'SUB'}
-        ALU_Op = ALU_OPS.get(alu_map.get(instr, 'ADD'), '0000')
-    
-    # MOV: Move/copy register or immediate
-    elif instr == 'MOV':
-        WRegEn = '1'
-        WReg = get_register(ops[0])
-        
-        if ops[1].startswith('#'):  # MOV rd, #imm
-            ALUSrc = '1'
-            Imm = get_immediate(ops[1])
-            ALU_Op = ALU_OPS['ADD']  # ADD 0 + imm
-            Reg1 = '000'  # r0 (assume 0)
-        else:  # MOV rd, rs
-            Reg1 = get_register(ops[1])
-            ALU_Op = ALU_OPS['ADD']  # ADD rs + 0
-            Reg2 = '000'
-    
-    # CMP: Compare (SUB without writing result)
-    elif instr == 'CMP':
-        WRegEn = '0'  # Don't write result
-        Reg1 = get_register(ops[0])
-        
-        if ops[1].startswith('#'):
-            ALUSrc = '1'
-            Imm = get_immediate(ops[1])
-        else:
-            Reg2 = get_register(ops[1])
-        
-        ALU_Op = ALU_OPS['CMP']
-    
-    # LDR: Load from memory
-    elif instr == 'LDR':
-        WRegEn = '1'
-        WReg = get_register(ops[0])
-        
-        # Parse [Rn, #offset] format
-        base_reg = get_register(ops[1]) if len(ops) > 1 else '000'
-        offset = ops[2] if len(ops) > 2 else '#0'
-        
-        Reg1 = base_reg
-        ALUSrc = '1'
-        Imm = get_immediate(offset)
-        ALU_Op = ALU_OPS['ADD']  # Calculate address: base + offset
-        # Note: You'll need to add MemRead signal to your format
-    
-    # STR: Store to memory
-    elif instr == 'STR':
-        WMemEn = '1'
-        
-        # Source register (value to store)
-        Reg2 = get_register(ops[0])
-        
-        # Parse [Rn, #offset]
-        base_reg = get_register(ops[1]) if len(ops) > 1 else '000'
-        offset = ops[2] if len(ops) > 2 else '#0'
-        
-        Reg1 = base_reg
-        ALUSrc = '1'
-        Imm = get_immediate(offset)
-        ALU_Op = ALU_OPS['ADD']
-    
-    # LSL: Logical shift left
-    elif instr == 'LSL':
-        WRegEn = '1'
-        WReg = get_register(ops[0])
-        Reg1 = get_register(ops[1])
-        
+    # Defaults
+    WMemEn=WRegEn=ALUSrc=Branch=BrType=0
+    Reg1=Reg2=WReg=0
+    alu=0
+    imm=0
+
+    # ---------------- R-TYPE ----------------
+    if instr in ['ADD','SUB','AND','ORR','EOR']:
+        WRegEn=1
+        WReg=get_reg(ops[0])
+        Reg1=get_reg(ops[1])
         if ops[2].startswith('#'):
-            # Shift amount goes in immediate field
-            shift_amt = int(ops[2][1:])
-            Imm = format(shift_amt, '016b')
-            ALUSrc = '1'
-        
-        ALU_Op = ALU_OPS['SLL']
-    
-    # Branch instructions
-    elif instr in ['B', 'BEQ', 'BNE', 'BLT', 'BLE', 'BGT', 'BGE']:
-        Branch = '1'
-        
-        # Branch type
-        branch_map = {
-            'B':   '00',   # Unconditional (always branch)
-            'BEQ': '00',   # Equal (zero flag set)
-            'BNE': '01',   # Not equal
-            'BLT': '10',   # Less than
-            'BLE': '10',   # Less than or equal (use LT check)
-            'BGT': '11',   # Greater than
-            'BGE': '11'    # Greater or equal
-        }
-        BrType = branch_map.get(instr, '00')[0]  # Just use first bit for now
-        
-        # Branch target (label or offset)
-        # For now, just store as immediate
-        target = ops[0] if ops else '0'
-        if target.startswith('#'):
-            Imm = get_immediate(target)
+            ALUSrc=1
+            imm=get_imm(ops[2])
         else:
-            # Label - will need to resolve in second pass
-            Imm = '0000000000000000'  # Placeholder
-    
+            Reg2=get_reg(ops[2])
+        alu = OPCODES['ADD' if instr=='ORR' else 'XOR' if instr=='EOR' else instr]
+
+    # ---------------- MOV ----------------
+    elif instr=='MOV':
+        WRegEn=1
+        WReg=get_reg(ops[0])
+        if ops[1].startswith('#'):
+            ALUSrc=1
+            imm=get_imm(ops[1])
+            Reg1=0
+            alu=OPCODES['ADD']
+        else:
+            Reg1=get_reg(ops[1])
+            alu=OPCODES['ADD']
+
+    # ---------------- CMP ----------------
+    elif instr=='CMP':
+        Reg1=get_reg(ops[0])
+        if ops[1].startswith('#'):
+            ALUSrc=1
+            imm=get_imm(ops[1])
+        else:
+            Reg2=get_reg(ops[1])
+        alu=OPCODES['CMP']
+
+    # ---------------- LDR ----------------
+    elif instr=='LDR':
+        WRegEn=1
+        WReg=get_reg(ops[0])
+        Reg1=get_reg(ops[1])
+        ALUSrc=1
+        imm=get_imm(ops[2]) if len(ops)>2 else 0
+        alu=OPCODES['ADD']
+
+    # ---------------- STR ----------------
+    elif instr=='STR':
+        WMemEn=1
+        Reg2=get_reg(ops[0])
+        Reg1=get_reg(ops[1])
+        ALUSrc=1
+        imm=get_imm(ops[2]) if len(ops)>2 else 0
+        alu=OPCODES['ADD']
+
+    # ---------------- LSL ----------------
+    elif instr=='LSL':
+        WRegEn=1
+        WReg=get_reg(ops[0])
+        Reg1=get_reg(ops[1])
+        ALUSrc=1
+        imm=get_imm(ops[2])
+        alu=OPCODES['SLL']
+
+    # ---------------- BRANCH ----------------
+    elif instr in ['B','BEQ','BLT','BLE','BGT']:
+        Branch=1
+        BrType = 0 if instr in ['B','BEQ'] else 1
+        imm=0  # label resolution NOT implemented
+        alu=0
+
     else:
-        print(f"Warning: Unsupported instruction '{instr}'")
+        print(f"Warning: Unsupported {instr}")
         return None
-    
-    # Construct 32-bit instruction
-    # [31]   [30]    [29:27] [26:24] [23:21] [20:17] [16]   [25]    [24]    [15:0]
-    # WMemEn WRegEn  Reg1    Reg2    WReg    ALU_Op  ALUSrc Branch  BrType  Imm
-    
-    instruction = (WMemEn + WRegEn + Reg1 + Reg2 + WReg + 
-                   ALU_Op + ALUSrc + Branch + BrType + Imm)
-    
-    # Convert to hex
-    instr_int = int(instruction, 2)
-    hex_instr = format(instr_int, '08x')
-    
-    return {
-        'binary': instruction,
-        'hex': hex_instr,
-        'original': parsed['original']
-    }
 
+    return encode(WMemEn,WRegEn,Reg1,Reg2,WReg,alu,ALUSrc,Branch,BrType,imm)
+
+# ============================
+# MAIN
+# ============================
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 arm_to_custom.py <arm_assembly_file>")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = input_file.replace('.s', '_custom.txt')
-    
-    print(f"Translating {input_file} to custom format...")
-    
-    with open(input_file, 'r') as f:
-        lines = f.readlines()
-    
-    translated = []
-    for i, line in enumerate(lines):
-        parsed = parse_arm_instruction(line)
-        result = translate_instruction(parsed)
-        
-        if result:
-            translated.append(result)
-            print(f"{i:3d}: {result['hex']} | {result['original']}")
-    
-    # Write to output file
-    with open(output_file, 'w') as f:
-        f.write("# Custom instruction format\n")
-        f.write("# Address | Hex      | Original ARM\n")
-        f.write("#" + "-"*60 + "\n")
-        for i, instr in enumerate(translated):
-            f.write(f"{i:08x}  {instr['hex']}  # {instr['original']}\n")
-    
-    print(f"\nWrote {len(translated)} instructions to {output_file}")
+    if len(sys.argv)<2:
+        print("Usage: python3 arm2custom.py file.s")
+        exit(1)
 
-if __name__ == '__main__':
+    infile=sys.argv[1]
+    outfile=infile.replace(".s","_custom.txt")
+
+    with open(infile) as f:
+        lines=f.readlines()
+
+    out=[]
+    for i,line in enumerate(lines):
+        tokens=parse_line(line)
+        if not tokens:
+            continue
+        word=translate(tokens)
+        if word is not None:
+            out.append((i,word,line.strip()))
+
+    with open(outfile,'w') as f:
+        for i,(ln,word,orig) in enumerate(out):
+            f.write(f"{i:08x}  {word:08x}  # {orig}\n")
+
+    print(f"Wrote {len(out)} instructions to {outfile}")
+
+if __name__=="__main__":
     main()
