@@ -216,7 +216,7 @@ module pipeline_datapath_skeleton(
     wire [31:0] rf_r1, rf_r2;
     wire [3:0]  alu_ctrl;        // ALU uses 4-bit Op
     wire [4:0]  id_shift;        // ALU's 5-bit shift
-    wire        WRegEn, WMemEn; 
+    wire        WRegEn, WMemEn, ALUSrc; 
     wire [2:0]  WR1;
 	 wire [2:0] Reg1_addr, Reg2_addr; //additional declaration
 
@@ -226,28 +226,28 @@ module pipeline_datapath_skeleton(
     assign Reg1_addr= if_id[29:27];   // Bits 29-27: Reg1 (3 bits)
     assign Reg2_addr= if_id[26:24];   // Bits 26-24: Reg2 (3 bits)
     assign WR1      = if_id[23:21];   // Bits 23-21: WReg1 (3 bits)
+	// ALUSrc: select second ALU operand (0 = Read data 2, 1 = sign-extended immediate)
+    assign ALUSrc = if_id[16];
 
     //using the unused bits over here
     assign alu_ctrl = if_id[20:17];   // OPCODE
     assign id_shift = if_id[10:6];    // SHIFT
-
-    // Sign extender: 16-bit immediate (IR[15:0]) -> 32-bit sign-extended (P&H style)
-    wire [15:0] imm_16 = if_id[15:0];
-    wire [31:0] sign_ext_imm = {{16{imm_16[15]}}, imm_16};
-
-    // ALUSrc: select second ALU operand (0 = Read data 2, 1 = sign-extended immediate)
-    wire ALUSrc = if_id[16];
-
-	// Add new bit for branch enable
-	wire branch = if_id[25];  // New: bit 25 = branch enable
-	wire branchType = if_id[24];  // New: bit 24 = branch type (0=BEQ, 1=BLT, etc.)
 	
-	// Branch logic
+	// NEW: Branch decoding
+	wire branch     = if_id[25];
+	wire brType     = if_id[24];
+	
+	// 16-bit immediate (IR[15:0]) -> 32-bit sign-extended (P&H style)
+	wire [15:0] imm_16 = if_id[15:0];
+	wire [31:0] sign_ext_imm = {{16{imm_16[15]}}, imm_16};
+	
+	// Branch condition evaluation
 	wire zero = (rf_r1 == rf_r2);
 	wire less_than = ($signed(rf_r1) < $signed(rf_r2));
 	
-	wire branch_taken = branch & ((branchType == 0 & zero) |      // BEQ
-								  (branchType == 1 & less_than));  // BLT
+	// Branch decision logic
+	wire branch_taken = branch & ((brType == 1'b0 & zero) |        // BEQ/B
+								  (brType == 1'b1 & less_than));   // BLT
 	
 	wire PCSrc = branch_taken;
 	
@@ -371,5 +371,6 @@ module pipeline_datapath_skeleton(
 	
 
 endmodule
+
 
 
