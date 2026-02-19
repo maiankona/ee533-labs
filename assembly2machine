@@ -1,6 +1,6 @@
 # script that converts assembly programs to machine code
 C → assembly		arm-none-eabi-gcc -S bubbleSort.c
 assembly → object	arm-none-eabi-as bubbleSort.s -o bubbleSort.o
-object → elf 		arm-none-eabi-gcc -o bubbleSort.elf bubbleSort.o -nostdlib
 object → opcodes	arm-none-eabi-objdump -d bubbleSort.o
 object → raw binary	arm-none-eabi-objcopy -O binary bubbleSort.elf bubbleSort.bin
+viewable binary  xxd -b bubbleSort.bin > bubbleSortBin.txt
