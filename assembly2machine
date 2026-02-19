@@ -1,1 +1,2 @@
 # script that converts assembly programs to machine code
+arm-none-eabi-objdump -d -M reg-names-std [name].o > [name]Opcodes.txt
