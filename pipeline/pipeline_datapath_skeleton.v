@@ -306,7 +306,8 @@ module pipeline_datapath_skeleton(
     //STAGE 3: EX
     // ALU second operand Mux: B = register (id_ex_r2) or sign-extended immediate (P&H style)
     wire [31:0] alu_B = id_ex_ALUSrc ? id_ex_sign_ext_imm : id_ex_r2;
-
+	//alu_in2 = (alu_ctrl == SLL_OP) ? id_shift : reg_data2; to select shift or imm
+	
     wire [31:0] alu_out;
     alu_32bit alu_unit (
         .clk     (clk),
@@ -318,7 +319,7 @@ module pipeline_datapath_skeleton(
         .Out     (alu_out)
     );
 
-    // EX/MEM pipeline register: add ALU result (for WB mux and for data memory address)
+	// EX/MEM pipeline register: add ALU result (for WB mux and for data memory address)
     reg [31:0] ex_me_alu_result;
 
     always @(posedge clk or posedge rst) begin
@@ -371,6 +372,7 @@ module pipeline_datapath_skeleton(
 	
 
 endmodule
+
 
 
 
