@@ -32,9 +32,12 @@ module decode (
     wire [2:0] wreg1   = id_inst[23:21];
 
     // *** Added parsing fields for ALU/Immediate ***
-    wire [4:0] shift   = id_inst[20:16];
-    wire [3:0] alu_op  = id_inst[15:12];
+    wire [3:0] alu_op  = id_inst[20:17];
+    wire [4:0] shift   = id_inst[10:6];
     wire [11:0] imm12  = id_inst[11:0];
+
+    wire branch  = id_instr[15];
+    wire brType  = id_instr[14];
 
     // 2. Register File Instance
     registerFile32 rf_inst (
@@ -62,7 +65,8 @@ module decode (
     assign alu_ctrl_out = alu_op;
 
     // *** ALUSrc: use immediate if immediate field is non-zero ***
-    assign ALUSrc_out = (imm12 != 12'b0);
+    //assign ALUSrc_out = (imm12 != 12'b0);
+    assign ALUSrc_out  = id_instr[16];
 
     // *** Memory Read Control ***
     // For now: assume load when wmem_en = 0 and wreg_en = 1
