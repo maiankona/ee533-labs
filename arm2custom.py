@@ -89,7 +89,7 @@ def parse_line(line):
 # ============================
 # Translator
 # ============================
-def translate(tokens):
+def translate(tokens, current_addr, label_map):
     instr = tokens[0].upper()
     ops = tokens[1:]
 
