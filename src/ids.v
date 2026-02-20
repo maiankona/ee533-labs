@@ -149,7 +149,7 @@ module ids
       .software_regs    ({dmem, imem, address, input_type}),
 
       // --- HW regs interface
-      .hardware_regs    (dmem),
+	  .hardware_regs    (dmem_out),
 
       .clk              (clk),
       .reset            (reset)
