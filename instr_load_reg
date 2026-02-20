@@ -131,7 +131,7 @@ elsif($cmd eq "write") {
    }
 }
 elsif ($cmd eq "load_program") {
-    my $file = $ARGV[1] || "bubble_sort_custom.txt";
+    my $file = $ARGV[1] || "bubbleSort_custom.txt";
     open(my $fh, '<', $file) or die "Cannot open $file: $!";
     
     my $addr = 0;
