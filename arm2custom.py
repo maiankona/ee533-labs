@@ -111,18 +111,16 @@ def translate(tokens):
             Reg2=get_reg(ops[2])
         alu = OPCODES['ADD' if instr=='ORR' else 'XOR' if instr=='EOR' else instr]
 
-    # ---------------- MOV ----------------
-    elif instr=='MOV':
-        WRegEn=1
-        WReg=get_reg(ops[0])
-        if ops[1].startswith('#'):
-            ALUSrc=1
-            imm=get_imm(ops[1])
-            Reg1=0
-            alu=OPCODES['ADD']
+    # ---------------- MOV / MVN ----------------
+    elif instr in ['MOV', 'MVN']:
+        WRegEn = 1
+        WReg = get_reg(ops[0])
+        ALUSrc = 1 if ops[1].startswith('#') else 0
+        if ALUSrc:
+            imm = get_imm(ops[1])
         else:
-            Reg1=get_reg(ops[1])
-            alu=OPCODES['ADD']
+            Reg1 = get_reg(ops[1])
+        alu = OPCODES['ADD'] if instr == 'MOV' else OPCODES['MVN']
 
     # ---------------- CMP ----------------
     elif instr=='CMP':
@@ -160,7 +158,7 @@ def translate(tokens):
         ALUSrc=1
         imm=get_imm(ops[2])
         alu=OPCODES['SLL']
-        # ---------------- RSB ----------------
+    # ---------------- RSB ----------------
     elif instr == 'RSB':
         WRegEn = 1
         WReg = get_reg(ops[0])
@@ -172,26 +170,18 @@ def translate(tokens):
             Reg2 = get_reg(ops[2])
         alu = OPCODES['RSB']
 
-    # ---------------- MVN ----------------
-    elif instr == 'MVN':
-        WRegEn = 1
-        WReg = get_reg(ops[0])
-        # MVN Rd, Rn usually means Rd = ~Rn. 
-        # In our ALU, 'B' is the source for NOT, so we put Rn in Reg2 slot.
-        if ops[1].startswith('#'):
-            ALUSrc = 1
-            imm = get_imm(ops[1])
-        else:
-            Reg2 = get_reg(ops[1])
-            ALUSrc = 0
-        alu = OPCODES['MVN']
-
     # ---------------- BRANCH ----------------
     elif instr in ['B','BEQ','BLT','BLE','BGT']:
-        Branch=1
+        Branch = 1
+        # 0 for Unconditional/Equal, 1 for Inequalities based on your logic
         BrType = 0 if instr in ['B','BEQ'] else 1
-        imm=0  # label resolution NOT implemented
-        alu=0
+        target_label = ops[0]
+        if target_label in label_map:
+            # Hardware expects relative offset: Target - (PC + 1)
+            imm = (label_map[target_label] - (current_addr + 1)) & 0xFFFF
+        else:
+            print(f"Error: Label {target_label} not found")
+            imm = 0
 
     else:
         print(f"Warning: Unsupported {instr}")
@@ -203,30 +193,38 @@ def translate(tokens):
 # MAIN
 # ============================
 def main():
-    if len(sys.argv)<2:
+    if len(sys.argv) < 2:
         print("Usage: python3 arm2custom.py file.s")
-        exit(1)
+        sys.exit(1)
 
-    infile=sys.argv[1]
-    outfile=infile.replace(".s","_custom.txt")
+    with open(sys.argv[1]) as f:
+        lines = f.readlines()
 
-    with open(infile) as f:
-        lines=f.readlines()
+    label_map = {}
+    instructions_to_process = []
+    
+    # PASS 1: Find labels and instructions
+    addr = 0
+    for line in lines:
+        clean = line.split('@')[0].split('#')[0].strip()
+        if not clean: continue
+        
+        if clean.endswith(':'):
+            label_map[clean[:-1]] = addr
+        elif not clean.startswith('.'):
+            instructions_to_process.append(clean)
+            addr += 1
 
-    out=[]
-    for i,line in enumerate(lines):
-        tokens=parse_line(line)
-        if not tokens:
-            continue
-        word=translate(tokens)
-        if word is not None:
-            out.append((i,word,line.strip()))
+    # PASS 2: Translate
+    out_file = sys.argv[1].replace(".s", "_custom.txt")
+    with open(out_file, 'w') as f:
+        for i, raw_line in enumerate(instructions_to_process):
+            tokens = parse_line(raw_line)
+            word = translate(tokens, i, label_map)
+            if word is not None:
+                f.write(f"{i:08x}  {word:08x}  # {raw_line}\n")
 
-    with open(outfile,'w') as f:
-        for i,(ln,word,orig) in enumerate(out):
-            f.write(f"{i:08x}  {word:08x}  # {orig}\n")
+    print(f"Wrote {len(instructions_to_process)} instructions to {out_file}")
 
-    print(f"Wrote {len(out)} instructions to {outfile}")
-
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
