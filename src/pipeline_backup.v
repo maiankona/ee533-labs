@@ -35,6 +35,11 @@ module pipeline_backup(
         .q_out(id_inst)
     );
 
+		 //WB mux, but instead just a bunch of assigns for now
+    wire [31:0] wb_data;
+    wire [2:0]  wb_wreg_addr;
+    wire        wb_wreg_en;
+
     // --- STAGE 2: DECODE ---
     wire [31:0] id_r1data, id_r2data;
     wire [2:0]  id_wreg_addr;
@@ -100,21 +105,18 @@ module pipeline_backup(
     // --- BRIDGE 4: ME/WB ---
     // Width: 32 (Data) + 3 (WReg) + 1 (WRegEn) = 36 bits
     wire [35:0] me_wb_bundle;
+	 
+    
+    // WB Stage Feedback
+    assign wb_data      = me_wb_bundle[35:4];
+    assign wb_wreg_addr = me_wb_bundle[3:1];
+    assign wb_wreg_en   = me_wb_bundle[0];
+
     register_generate #(36) me_wb_bridge (
         .clk(clk),
         .rst(rst),
         .d_in({dmem_raw_output[31:0], me_wreg, me_wre}),
         .q_out(me_wb_bundle)
     );
-
-    //WB mux, but instead just a bunch of assigns for now
-    wire [31:0] wb_data;
-    wire [2:0]  wb_wreg_addr;
-    wire        wb_wreg_en;
-    
-    // WB Stage Feedback
-    assign wb_data      = me_wb_bundle[35:4];
-    assign wb_wreg_addr = me_wb_bundle[3:1];
-    assign wb_wreg_en   = me_wb_bundle[0];
 
 endmodule
