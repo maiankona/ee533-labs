@@ -36,8 +36,11 @@ module alu_32bit(
                 4'b1010: Out <= A ^ B; // BITWISE XOR
                 4'b1011: Out <= ((A << shift) == B) ? 32'h1 : 32'h0; // SHIFT-THEN-COMPARE
                 4'b1100: Out <= (A[7:0] == B[7:0]) ? 32'h1 : 32'h0; // SUBSTRING COMPARE (lower 8 bits)
+				4'b1101: Out <= B - A; // for reverse substruct RSB in bubble sort
+				4'b1110: Out <= ~B; // BITWISE NOT for mvn
                 default: Out <= 32'b0;
             endcase
         end
     end
 endmodule
+
