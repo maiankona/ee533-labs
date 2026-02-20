@@ -9,8 +9,8 @@ module decode (
     input        wb_wena,           // WRegEn from WB stage
     
     // Outputs to ID/EX bridge 
-    output [31:0] r0data,           // Data from Reg1
-    output [31:0] r1data,           // Data from Reg2
+    output [31:0] r1data,           // Data from Reg1
+    output [31:0] r2data,           // Data from Reg2
     output [2:0]  wreg_addr_out,    // Propagated destination address
     output        wreg_en_out,      // Propagated WRegEn
     output        wmem_en_out       // Propagated WMemEn
@@ -27,13 +27,13 @@ module decode (
     registerFile32 rf_inst (
         .clk(clk),
         .clr(rst),                  // Connected to global reset 
-        .r0addr(reg1),
-        .r1addr(reg2),
+        .r1addr(reg1),
+        .r2addr(reg2),
         .waddr(wb_waddr),
         .wdata(wb_wdata),
         .wena(wb_wena),
-        .r0data(r0data),
-        .r1data(r1data)
+        .r1data(r1data),
+        .r2data(r2data)
     );
 
     // 3. Drive Outputs for the next stage bridge 
