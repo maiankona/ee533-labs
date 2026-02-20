@@ -238,7 +238,7 @@ module pipeline_datapath_skeleton(
 
 	assign id_shift = if_id[10:6];    // SHIFT when ALUsrc is 0
 	// 16-bit immediate (IR[15:0]) -> 32-bit sign-extended (P&H style)
-	wire [15:0] imm_16 = if_id[15:0]; // use immediate when ALUSrc is 1
+	wire [15:0] imm_16 = if_id[13:0]; // use immediate when ALUSrc is 1
 	wire [31:0] sign_ext_imm = {{16{imm_16[15]}}, imm_16};
 	
 	// Branch condition evaluation
@@ -371,6 +371,7 @@ module pipeline_datapath_skeleton(
 	
 
 endmodule
+
 
 
 
