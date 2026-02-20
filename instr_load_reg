@@ -57,6 +57,7 @@ sub imemwrite {
     regwrite($MEM_ADDR_REG, $addr);
     regwrite($MEM_DATA_WRITE, $data);
     regwrite($MEM_CMD_REG, 1 << 5);  # set reg[5]
+regreset();
 }
 
 sub dmemwrite {
@@ -64,6 +65,7 @@ sub dmemwrite {
     regwrite($MEM_ADDR_REG, $addr);
     regwrite($MEM_DATA_WRITE, $data);
     regwrite($MEM_CMD_REG, 1 << 6);  # set reg[6]
+   regreset();
 }
 
 sub imemread {
@@ -88,6 +90,8 @@ sub usage {
    print "  Commands:\n";
    print "      read [select mem] [address]            read from memory (0 for I-mem, 1 for D-mem) from a specified address\n";
    print "      write [select mem] [address] [data]    write data into memory (0 for I-mem, 1 for D-mem) to a specified address\n";
+   print "      load_data    [filename]                automates writing the data to data memory";
+   print "      load_program [filename]                automates writing the program to instruction memory";
    print "      reset                                  resets the commands register\n";
 }
 
@@ -129,6 +133,22 @@ elsif($cmd eq "write") {
    elsif($ARGV[1] == 1) { # D-mem
       dmemwrite($addr, $data);
    }
+}
+elsif ($cmd eq "load_data") {
+    my $file = $ARGV[1] || "bubbleSort_data.txt";
+    open(my $fh, '<', $file) or die "Cannot open $file: $!";
+    
+    my $addr = 0;
+    while (my $line = <$fh>) {
+     if ($line =~ /^[0-9a-f]+\s+([0-9a-f]{8})/i) {
+         my $data = hex($1);
+         dmemwrite($addr, $data);
+         printf("Loaded D-Mem[%d] = 0x%08x\n", $addr, $data);
+         $addr++;
+        }
+    }
+    close($fh);
+    print "Loaded $addr data\n";
 }
 elsif ($cmd eq "load_program") {
     my $file = $ARGV[1] || "bubbleSort_custom.txt";
