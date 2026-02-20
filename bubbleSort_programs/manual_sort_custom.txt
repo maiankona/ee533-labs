@@ -1,0 +1,37 @@
+// --- INITIALIZATION ---
+000: 40210100  // MOV r4, #256       (Reg1=0, WReg=4, Imm=256) -> Array Base
+001: 40290000  // MOV r5, #0         (Reg1=0, WReg=5, Imm=0)   -> i = 0
+
+// --- OUTER LOOP (i) ---
+002: 2a810009  // CMP r5, #9         (Reg1=5, ALU=SUB, Imm=9)  -> i < 9?
+003: 0000c014  // BGE PC 23          (Branch=1, BrType=1, Imm=20) -> Exit if i>=9
+004: 40310000  // MOV r6, #0         (Reg1=0, WReg=6, Imm=0)   -> j = 0
+
+// --- INNER LOOP (j) ---
+005: 48010009  // MOV r1, #9         (r1 = 9)
+006: 0a810000  // SUB r1, r1, r5     (r1 = 9 - i)              -> Inner Limit
+007: 33010000  // CMP r6, r1         (Reg1=6, Reg2=1, ALU=SUB) -> j < (9-i)?
+008: 0000c00c  // BGE PC 20          (Branch=1, BrType=1, Imm=12) -> i++ if j>=Limit
+
+// --- LOAD arr[j] AND arr[j+1] ---
+009: 53180080  // SLL r1, r6, #2     (Shift bits 10:6 = 2)     -> j * 4
+00a: 0a100000  // ADD r1, r1, r4     (r1 = ArrayBase + j*4)    -> &arr[j]
+00b: 58200000  // LDR r2, [r1]       (WReg=2, Reg1=1)          -> r2 = arr[j]
+00c: 58610004  // ADD r3, r1, #4     (Reg1=1, WReg=3, Imm=4)   -> &arr[j+1]
+00d: 58600000  // LDR r3, [r3]       (WReg=3, Reg1=3)          -> r3 = arr[j+1]
+
+// --- COMPARE & SWAP ---
+00e: 15010000  // CMP r2, r3         (r2 - r3)
+00f: 0000c003  // BLE PC 18          (Branch=1, BrType=1, Imm=3) -> Skip if arr[j] <= arr[j+1]
+010: 9a000000  // STR r3, [r1]       (Store r3 into &arr[j])
+011: 58610004  // ADD r3, r1, #4     (Recalculate &arr[j+1])
+012: bb000000  // STR r2, [r3]       (Store r2 into &arr[j+1])
+
+// --- ITERATE ---
+013: 53110001  // ADD r6, r6, #1     (j++)
+014: 00008ff7  // B PC 5             (Branch=1, Imm=-9)        -> Back to Inner Loop
+015: 52910001  // ADD r5, r5, #1     (i++)
+016: 00008fec  // B PC 2             (Branch=1, Imm=-20)       -> Back to Outer Loop
+
+// --- END ---
+017: 00008000  // B PC 23            (Infinite Loop / Halt)
