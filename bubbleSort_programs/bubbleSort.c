@@ -1,17 +1,31 @@
+#define ARR_BASE ((volatile int*)0x100)
+#define N 10
+
 int main() {
-    // simple bubble sort algorithm
-    int arr[] = {323, 123, -455, 2, 98, 125, 10, 65, -56, 0}; // static or via user input?
-    int n = sizeof(arr); 
-    int i, j, temp;
-    for (i = 0; i < n-1; i++) {
-        for (j = 0; j < n-i-1; j++) {
+    volatile int *arr = ARR_BASE;
+
+    // initialize memory manually
+    arr[0] = 323;
+    arr[1] = 123;
+    arr[2] = -455;
+    arr[3] = 2;
+    arr[4] = 98;
+    arr[5] = 125;
+    arr[6] = 10;
+    arr[7] = 65;
+    arr[8] = -56;
+    arr[9] = 0;
+
+    // norm bubble sort
+    for (int i = 0; i < N-1; i++) {
+        for (int j = 0; j < N-i-1; j++) {
             if (arr[j] > arr[j+1]) {
-                temp = arr[j];
+                int temp = arr[j];
                 arr[j] = arr[j+1];
                 arr[j+1] = temp;
             }
         }
     }
-        // print the sorted array or return it? how will we confirm it works
-        return 0;
+
+    while (1);
 }
