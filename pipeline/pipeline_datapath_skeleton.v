@@ -204,7 +204,7 @@ module pipeline_datapath_skeleton(
     wire ALUSrc  = if_id[16];
   
     wire [15:0] imm_16 = if_id[13:0];
-    wire [31:0] sign_ext_imm = {{16{imm_16[15]}}, imm_16};
+    wire [31:0] sign_ext_imm = {{18{if_id[13]}}, if_id[13:0]};
     
     wire zero = (rf_r1 == rf_r2);
     wire less_than = ($signed(rf_r1) < $signed(rf_r2));
