@@ -26,7 +26,7 @@ module memory (
         .clka(clk),
 		  .clkb(clk),
         .addra(final_addr),
-		  .addrb(8'b0),
+		  .addrb(final_addr),
         .dina(final_din),
         .wea(final_we),
         .doutb(dmem_out)
