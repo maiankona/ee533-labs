@@ -225,20 +225,20 @@ module pipeline_datapath_skeleton(
     assign WRegEn   = if_id[30];      // Bit 30: WReEn
     assign Reg1_addr= if_id[29:27];   // Bits 29-27: Reg1 (3 bits)
     assign Reg2_addr= if_id[26:24];   // Bits 26-24: Reg2 (3 bits)
-    assign WR1      = if_id[23:21];   // Bits 23-21: WReg1 (3 bits)
-	// ALUSrc: select second ALU operand (0 = Read data 2, 1 = sign-extended immediate)
-    assign ALUSrc = if_id[16];
+	assign WR1      = if_id[23:21];   // Bits 23-21: WReg1 (3 bits)
 
     //using the unused bits over here
     assign alu_ctrl = if_id[20:17];   // OPCODE
-    assign id_shift = if_id[10:6];    // SHIFT
+	// ALUSrc: select second ALU operand (0 = Read data 2, 1 = sign-extended immediate)
+    assign ALUSrc = if_id[16];
 	
 	// NEW: Branch decoding
-	wire branch     = if_id[25];
-	wire brType     = if_id[24];
-	
+	wire branch     = if_id[15];
+	wire brType     = if_id[14];
+
+	assign id_shift = if_id[10:6];    // SHIFT when ALUsrc is 0
 	// 16-bit immediate (IR[15:0]) -> 32-bit sign-extended (P&H style)
-	wire [15:0] imm_16 = if_id[15:0];
+	wire [15:0] imm_16 = if_id[15:0]; // use immediate when ALUSrc is 1
 	wire [31:0] sign_ext_imm = {{16{imm_16[15]}}, imm_16};
 	
 	// Branch condition evaluation
@@ -371,6 +371,7 @@ module pipeline_datapath_skeleton(
 	
 
 endmodule
+
 
 
 
