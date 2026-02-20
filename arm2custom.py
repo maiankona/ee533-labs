@@ -22,6 +22,8 @@ OPCODES = {
     'XOR': 0b1010,
     'SLL': 0b0100,
     'CMP': 0b0001,   # reuse SUB
+    'RSB': 0b1101,   
+    'MVN': 0b1110,
 }
 
 # ============================
@@ -158,6 +160,31 @@ def translate(tokens):
         ALUSrc=1
         imm=get_imm(ops[2])
         alu=OPCODES['SLL']
+        # ---------------- RSB ----------------
+    elif instr == 'RSB':
+        WRegEn = 1
+        WReg = get_reg(ops[0])
+        Reg1 = get_reg(ops[1])
+        if ops[2].startswith('#'):
+            ALUSrc = 1
+            imm = get_imm(ops[2])
+        else:
+            Reg2 = get_reg(ops[2])
+        alu = OPCODES['RSB']
+
+    # ---------------- MVN ----------------
+    elif instr == 'MVN':
+        WRegEn = 1
+        WReg = get_reg(ops[0])
+        # MVN Rd, Rn usually means Rd = ~Rn. 
+        # In our ALU, 'B' is the source for NOT, so we put Rn in Reg2 slot.
+        if ops[1].startswith('#'):
+            ALUSrc = 1
+            imm = get_imm(ops[1])
+        else:
+            Reg2 = get_reg(ops[1])
+            ALUSrc = 0
+        alu = OPCODES['MVN']
 
     # ---------------- BRANCH ----------------
     elif instr in ['B','BEQ','BLT','BLE','BGT']:
