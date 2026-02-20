@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version K.31
-# Date: Thu Feb 19 10:00:42 2026
+# Date: Thu Feb 19 23:00:29 2026
 #
 ##############################################################
 #
@@ -35,7 +35,7 @@ SET vhdlsim = True
 SELECT Dual_Port_Block_Memory family Xilinx,_Inc. 6.3
 # END Select
 # BEGIN Parameters
-CSET coefficient_file=C:\Xilinx\10.1\ISE\lab5_backup\dmem_preload.coe
+CSET coefficient_file="C:\Documents and Settings\Melvin\My Documents\Lab5\dataMemoryInit.coe"
 CSET component_name=mem64bit256
 CSET configuration_port_a=Write_Only
 CSET configuration_port_b=Read_Only
@@ -72,5 +72,5 @@ CSET write_mode_port_a=Read_After_Write
 CSET write_mode_port_b=Read_After_Write
 # END Parameters
 GENERATE
-# CRC: 135aa94a
+# CRC: 3686ccee
 

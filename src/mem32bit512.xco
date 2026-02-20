@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version K.31
-# Date: Thu Feb 19 10:11:35 2026
+# Date: Thu Feb 19 22:59:17 2026
 #
 ##############################################################
 #
@@ -37,7 +37,7 @@ SELECT Single_Port_Block_Memory family Xilinx,_Inc. 6.2
 # BEGIN Parameters
 CSET active_clock_edge=Rising_Edge_Triggered
 CSET additional_output_pipe_stages=0
-CSET coefficient_file=C:\Xilinx\10.1\ISE\lab5_backup\pipe_tb_take1.coe
+CSET coefficient_file="C:\Documents and Settings\Melvin\My Documents\Lab5\InstrMemoryInit.coe"
 CSET component_name=mem32bit512
 CSET depth=512
 CSET disable_warning_messages=true
@@ -60,5 +60,5 @@ CSET write_enable_polarity=Active_High
 CSET write_mode=Read_After_Write
 # END Parameters
 GENERATE
-# CRC: 644c3a76
+# CRC: 295ccc3b
 
