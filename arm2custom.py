@@ -12,34 +12,19 @@ REG_MAP = {
 }
 
 # ============================
-# OPCODE MAP (matches pipeline alu_ctrl)
+# OPCODE MAP (Updated to match your Verilog ALU)
 # ============================
 OPCODES = {
     'ADD': 0b0000,
     'SUB': 0b0001,
     'AND': 0b0010,
     'OR' : 0b0011,
-    'XOR': 0b1010,
     'SLL': 0b0100,
-    'CMP': 0b0001,   # reuse SUB
-    'RSB': 0b1101,   
-    'MVN': 0b1110,
+    'XOR': 0b1010,
+    'RSB': 0b1101, # Added B - A
+    'MVN': 0b1110, # Added ~B
+    'CMP': 0b0001, # reuse SUB
 }
-
-# ============================
-# Instruction Encoder
-# Format:
-# [31]   WMemEn
-# [30]   WRegEn
-# [29:27] Reg1
-# [26:24] Reg2
-# [23:21] WReg
-# [20:17] ALU Op
-# [16]   ALUSrc
-# [25]   Branch
-# [24]   BrType
-# [15:0] Imm
-# ============================
 
 def encode(WMemEn, WRegEn, Reg1, Reg2, WReg, alu, ALUSrc, Branch, BrType, imm):
     word = 0
@@ -55,61 +40,58 @@ def encode(WMemEn, WRegEn, Reg1, Reg2, WReg, alu, ALUSrc, Branch, BrType, imm):
     word |= (imm & 0xFFFF)
     return word
 
-# ============================
-# Helpers
-# ============================
 def get_reg(x):
     x = x.lower()
-    if x in REG_MAP:
-        return REG_MAP[x]
+    if x in REG_MAP: return REG_MAP[x]
     m = re.match(r"r(\d+)", x)
-    if m:
-        return int(m.group(1)) & 7
+    if m: return int(m.group(1)) & 7
     return 0
 
 def get_imm(x):
     x = x.replace('#','')
-    if x.startswith('0x'):
-        return int(x,16) & 0xFFFF
+    if x.startswith('0x'): return int(x,16) & 0xFFFF
     return int(x) & 0xFFFF
 
-# ============================
-# ARM Parser
-# ============================
 def parse_line(line):
-    line = line.split('@')[0].strip()
-    if not line:
-        return None
-    if line.startswith('.') or line.endswith(':'):
-        return None
-
+    # Remove comments and whitespace
+    line = line.split('@')[0].split('#')[0].strip()
+    if not line or line.startswith('.'): return None
+    # If it's a label definition, handle it elsewhere
+    if line.endswith(':'): return None
+    
     parts = re.split(r'[,\s\[\]]+', line)
     return [p for p in parts if p]
 
-# ============================
-# Translator
-# ============================
 def translate(tokens, current_addr, label_map):
     instr = tokens[0].upper()
     ops = tokens[1:]
 
-    # Defaults
     WMemEn=WRegEn=ALUSrc=Branch=BrType=0
     Reg1=Reg2=WReg=0
-    alu=0
-    imm=0
+    alu=imm=0
 
-    # ---------------- R-TYPE ----------------
-    if instr in ['ADD','SUB','AND','ORR','EOR']:
-        WRegEn=1
-        WReg=get_reg(ops[0])
-        Reg1=get_reg(ops[1])
-        if ops[2].startswith('#'):
-            ALUSrc=1
-            imm=get_imm(ops[2])
+    # ---------------- ALU OPS ----------------
+    if instr in ['ADD','SUB','AND','ORR','EOR','RSB']:
+        WRegEn = 1
+        WReg = get_reg(ops[0])
+        
+        # Check if we have 3 operands (ADD r1, r2, r3) or 2 operands (ADD r1, r2)
+        if len(ops) == 3:
+            Reg1 = get_reg(ops[1])
+            src_op = ops[2]
         else:
-            Reg2=get_reg(ops[2])
-        alu = OPCODES['ADD' if instr=='ORR' else 'XOR' if instr=='EOR' else instr]
+            # For 2-operand format (ADD r1, #4), the first reg is both Dest and Reg1
+            Reg1 = WReg
+            src_op = ops[1]
+
+        if src_op.startswith('#'):
+            ALUSrc = 1
+            imm = get_imm(src_op)
+        else:
+            Reg2 = get_reg(src_op)
+        
+        op_key = 'OR' if instr=='ORR' else 'XOR' if instr=='EOR' else instr
+        alu = OPCODES[op_key]
 
     # ---------------- MOV / MVN ----------------
     elif instr in ['MOV', 'MVN']:
@@ -123,52 +105,36 @@ def translate(tokens, current_addr, label_map):
         alu = OPCODES['ADD'] if instr == 'MOV' else OPCODES['MVN']
 
     # ---------------- CMP ----------------
-    elif instr=='CMP':
-        Reg1=get_reg(ops[0])
+    elif instr == 'CMP':
+        Reg1 = get_reg(ops[0])
         if ops[1].startswith('#'):
-            ALUSrc=1
-            imm=get_imm(ops[1])
+            ALUSrc = 1
+            imm = get_imm(ops[1])
         else:
-            Reg2=get_reg(ops[1])
-        alu=OPCODES['CMP']
+            Reg2 = get_reg(ops[1])
+        alu = OPCODES['CMP']
 
-    # ---------------- LDR ----------------
-    elif instr=='LDR':
-        WRegEn=1
-        WReg=get_reg(ops[0])
-        Reg1=get_reg(ops[1])
-        ALUSrc=1
-        imm=get_imm(ops[2]) if len(ops)>2 else 0
-        alu=OPCODES['ADD']
-
-    # ---------------- STR ----------------
-    elif instr=='STR':
-        WMemEn=1
-        Reg2=get_reg(ops[0])
-        Reg1=get_reg(ops[1])
-        ALUSrc=1
-        imm=get_imm(ops[2]) if len(ops)>2 else 0
-        alu=OPCODES['ADD']
+    # ---------------- LDR / STR ----------------
+    elif instr in ['LDR', 'STR']:
+        WRegEn = 1 if instr == 'LDR' else 0
+        WMemEn = 1 if instr == 'STR' else 0
+        target_reg = get_reg(ops[0])
+        if instr == 'LDR': WReg = target_reg
+        else: Reg2 = target_reg
+        
+        Reg1 = get_reg(ops[1])
+        ALUSrc = 1
+        imm = get_imm(ops[2]) if len(ops) > 2 else 0
+        alu = OPCODES['ADD']
 
     # ---------------- LSL ----------------
-    elif instr=='LSL':
-        WRegEn=1
-        WReg=get_reg(ops[0])
-        Reg1=get_reg(ops[1])
-        ALUSrc=1
-        imm=get_imm(ops[2])
-        alu=OPCODES['SLL']
-    # ---------------- RSB ----------------
-    elif instr == 'RSB':
+    elif instr == 'LSL':
         WRegEn = 1
         WReg = get_reg(ops[0])
         Reg1 = get_reg(ops[1])
-        if ops[2].startswith('#'):
-            ALUSrc = 1
-            imm = get_imm(ops[2])
-        else:
-            Reg2 = get_reg(ops[2])
-        alu = OPCODES['RSB']
+        ALUSrc = 1
+        imm = get_imm(ops[2])
+        alu = OPCODES['SLL']
 
     # ---------------- BRANCH ----------------
     elif instr in ['B','BEQ','BLT','BLE','BGT']:
@@ -187,11 +153,8 @@ def translate(tokens, current_addr, label_map):
         print(f"Warning: Unsupported {instr}")
         return None
 
-    return encode(WMemEn,WRegEn,Reg1,Reg2,WReg,alu,ALUSrc,Branch,BrType,imm)
+    return encode(WMemEn, WRegEn, Reg1, Reg2, WReg, alu, ALUSrc, Branch, BrType, imm)
 
-# ============================
-# MAIN
-# ============================
 def main():
     if len(sys.argv) < 2:
         print("Usage: python3 arm2custom.py file.s")
