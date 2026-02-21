@@ -16,11 +16,23 @@ module pipeline_backup(
     
     wire [31:0] instruction;
     wire [31:0] id_inst;
+    reg [31:0] pc;
+    wire [31:0] pc_plus_1 = pc + 1;
+    wire        PCSrc;
+    wire [31:0] next_pc;
+
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            pc <= 32'b0;
+        else
+            pc <= next_pc;  // updated by branch logic
+    end
 
     // IF Stage Logic
     ifetch IF (
         .clk(clk),
         .rst(rst),
+        .pc(pc),
         .write_to_imem(write_to_imem),
         .addr_imem_host(addr_imem_host),
         .imem_data(data_imem_host),
@@ -52,10 +64,12 @@ module pipeline_backup(
     wire        id_ALUSrc;
     wire [4:0]  id_shift;
     wire [3:0]  id_alu_ctrl;
+    wire [31:0] branch_target;
 
     decode ID (
         .clk(clk),
         .rst(rst),
+        .pc_plus_1(pc_plus_1),
         .id_inst(id_inst),
         .wb_waddr(wb_wreg_addr),
         .wb_wdata(wb_data),
@@ -72,8 +86,13 @@ module pipeline_backup(
         .mem_to_reg_out(id_mem_to_reg),
         .ALUSrc_out(id_ALUSrc),
         .shift_out(id_shift),
-        .alu_ctrl_out(id_alu_ctrl)
+        .alu_ctrl_out(id_alu_ctrl),
+        .PCSrc(PCSrc),           
+        .branch_target(branch_target)
     );
+
+    // PC mux
+    assign next_pc = PCSrc ? branch_target : pc_plus_1;
 
     // --- BRIDGE 2: ID/EX ---
     // New: 32+32+32+5+1+1+1+1+1+5+4 = 115 bits (added 2 bits for 5-bit wreg)
