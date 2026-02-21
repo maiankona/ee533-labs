@@ -2,6 +2,7 @@ module decode (
     input clk,
     input rst,
     input [31:0] id_inst,           // From IF/ID bridge 
+    input [31:0] pc_plus_1,
     
     // Write-back interface (feedback loop from WB stage) 
     input [4:0]  wb_waddr,          // WReg1 from WB stage
@@ -21,7 +22,10 @@ module decode (
     output        mem_to_reg_out,   // Select memory data in WB
     output        ALUSrc_out,       // Select immediate for ALU B input
     output [4:0]  shift_out,        // Shift amount
-    output [3:0]  alu_ctrl_out      // ALU operation select
+    output [3:0]  alu_ctrl_out,      // ALU operation select
+
+    output        PCSrc,           // Branch taken?
+    output [31:0] branch_target    // Branch target address
 );
 
     // 1. Instruction Parsing (Part 3 Format) 
@@ -58,8 +62,18 @@ module decode (
     assign wreg_en_out   = wreg_en;
     assign wmem_en_out   = wmem_en;
 
+    // Branch logic
+    wire zero      = (r1data == r2data);
+    wire less_than = ($signed(r1data) < $signed(r2data));
+    
+    wire branch_taken = branch & ((~brType & zero) |      // BEQ (brType=0)
+                                   (brType & less_than)); // BLT (brType=1)
+    
+    assign PCSrc = branch_taken;
+
     // *** Immediate generation (sign extend 8-bit immediate) ***
     assign sign_ext_imm_out = {{24{imm8[7]}}, imm8};
+    assign branch_target = pc_plus_1 + sign_ext_offset; // branch target address
 
     // *** ALU control + shift ***
     assign shift_out    = shift;
