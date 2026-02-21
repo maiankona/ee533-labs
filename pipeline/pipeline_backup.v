@@ -32,7 +32,8 @@ module pipeline_backup(
     ifetch IF (
         .clk(clk),
         .rst(rst),
-        .pc(pc),
+        .PCSrc(PCSrc),
+        .branch_target(branch_target),
         .write_to_imem(write_to_imem),
         .addr_imem_host(addr_imem_host),
         .imem_data(data_imem_host),
