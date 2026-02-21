@@ -37,12 +37,12 @@ module pipeline_backup(
 
     // WB signals
     wire [31:0] wb_data;
-    wire [2:0]  wb_wreg_addr;
+    wire [4:0]  wb_wreg_addr;
     wire        wb_wreg_en;
 
     // --- STAGE 2: DECODE ---
     wire [31:0] id_r1data, id_r2data;
-    wire [2:0]  id_wreg_addr;
+    wire [4:0]  id_wreg_addr;
     wire        id_wreg_en, id_wmem_en;
     wire        id_mem_read;   // Memory read signal from pipeline
 
@@ -76,10 +76,10 @@ module pipeline_backup(
     );
 
     // --- BRIDGE 2: ID/EX ---
-    // NEW WIDTH: 78 + 1 + 32 + 1 +1 = 113 bits  (Correct total width = 113 bits)
-    wire [112:0] id_ex_q;
+    // New: 32+32+32+5+1+1+1+1+1+5+4 = 115 bits (added 2 bits for 5-bit wreg)
+    wire [114:0] id_ex_q;
 
-    register_generate #(113) id_ex_bridge (
+    register_generate #(115) id_ex_bridge (
         .clk(clk),
         .rst(rst),
         .d_in({
@@ -100,11 +100,11 @@ module pipeline_backup(
 
 
     // --- STAGE 3: EXEC ---
-    wire [31:0] id_ex_r1           = id_ex_q[112:81];
-    wire [31:0] id_ex_r2           = id_ex_q[80:49];
-    wire [31:0] id_ex_sign_ext_imm = id_ex_q[48:17];
+    wire [31:0] id_ex_r1           = id_ex_q[114:83];
+    wire [31:0] id_ex_r2           = id_ex_q[82:51];
+    wire [31:0] id_ex_sign_ext_imm = id_ex_q[50:19];
 
-    wire [2:0]  id_ex_wreg         = id_ex_q[16:14];
+    wire [4:0]  id_ex_wreg         = id_ex_q[18:14];
     wire        id_ex_wreg_en      = id_ex_q[13];
     wire        id_ex_wmem_en      = id_ex_q[12];
     wire        id_ex_mem_to_reg   = id_ex_q[11];
@@ -133,10 +133,10 @@ module pipeline_backup(
     //   - id_ex_r2    = STORE DATA (from regfile second port)
     // Bundle format (69 bits total):
     // { alu_result[32], store_data[32], WReg[3], WRE[1], WME[1] }
-    // NEW WIDTH: 69 + 1 + 1 = 71 bits  (Correct total width = 71 bits)
-    wire [70:0] ex_me_bundle;
+    // New: 32+32+5+1+1+1+1 = 73 bits
+    wire [72:0] ex_me_bundle;
 
-    register_generate #(71) ex_me_bridge (   // *** Fixed from #(70) to #(71) ***
+    register_generate #(73) ex_me_bridge (   // *** Fixed from #(70) to #(71) ***
         .clk(clk),
         .rst(rst),
         .d_in({
@@ -155,9 +155,9 @@ module pipeline_backup(
     // Corrected slicing for 69-bit bundle {R1[32], R2[32], WReg[3], WRE[1], WME[1]}
     //   me_alu_result = MEMORY ADDRESS (corrected meaning)
     //   me_store_data = STORE WRITE DATA (corrected meaning)
-    wire [31:0] me_alu_result = ex_me_bundle[70:39];
-    wire [31:0] me_store_data = ex_me_bundle[38:7];
-    wire [2:0]  me_wreg       = ex_me_bundle[6:4];
+    wire [31:0] me_alu_result = ex_me_bundle[72:41];
+    wire [31:0] me_store_data = ex_me_bundle[40:9];
+    wire [4:0]  me_wreg       = ex_me_bundle[8:4];
     wire        me_wre        = ex_me_bundle[3];
     wire        me_wme        = ex_me_bundle[2];
     wire        me_mem_to_reg = ex_me_bundle[1];
@@ -180,11 +180,11 @@ module pipeline_backup(
     assign data_out_dmem = dmem_raw_output[31:0];
 
     // --- BRIDGE 4: ME/WB ---
-    // Width: 32 (Data) + 3 (WReg) + 1 (WRegEn) = 36 bits
-    wire [35:0] me_wb_bundle;
+    // New: 32+5+1 = 38 bits
+    wire [37:0] me_wb_bundle;
 
-    assign wb_data      = me_wb_bundle[35:4];
-    assign wb_wreg_addr = me_wb_bundle[3:1];
+    assign wb_data      = me_wb_bundle[37:6];
+    assign wb_wreg_addr = me_wb_bundle[5:1];
     assign wb_wreg_en   = me_wb_bundle[0];
 
     // --- STAGE 5: WB
@@ -194,7 +194,7 @@ module pipeline_backup(
             ? dmem_raw_output[31:0]
             : me_alu_result;
 
-    register_generate #(36) me_wb_bridge (
+    register_generate #(38) me_wb_bridge (
         .clk(clk),
         .rst(rst),
         .d_in({wb_result, me_wreg, me_wre}),
