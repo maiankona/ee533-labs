@@ -115,9 +115,10 @@ def translate(tokens, current_addr, label_map, instructions):
     # ============ PUSH {fp} ============
     if instr == 'PUSH':
         # str fp, [sp, #-4]
-        instructions.append(encode(1, 0, 13, 11, 0, OPCODES['SUB'], 1, 0, 0, 4))
-        count += 1
-        return count
+        #instructions.append(encode(1, 0, 13, 11, 0, OPCODES['SUB'], 1, 0, 0, 4))
+       # count += 1
+        #return count
+        continue
 
     # ============ DATA PROCESSING ============
     if instr in ['ADD', 'SUB', 'AND', 'ORR', 'EOR', 'RSB']:
