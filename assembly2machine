@@ -8,7 +8,9 @@
 #!/bin/bash
 
 # C → ARM assembly
-arm-none-eabi-gcc -S -O0 $1.c -o $1.s
+#arm-none-eabi-gcc -S -O0 $1.c -o $1.s
+arm-none-eabi-gcc -O0 -S $1.c \
+  -fno-stack-protector -fno-builtin -fno-pic -nostdlib
 
 # object → opcodes
 arm-none-eabi-gcc -c $1.s -o $1.o
@@ -21,3 +23,4 @@ echo "Generated files:"
 echo "  $1.s         - ARM assembly"
 echo "  $1_opcodes.txt   - ARM disassembly"
 echo "  $1_custom.txt - Our custom format"
+
