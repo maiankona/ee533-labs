@@ -86,9 +86,10 @@ module decode (
 
     // *** Memory Read Control ***
     // For now: assume load when wmem_en = 0 and wreg_en = 1
-    assign mem_read_out = (~wmem_en) & wreg_en;
+    assign mem_read_out = wmem_en & wreg_en;
 
     // *** MemToReg: only loads write memory data back ***
     assign mem_to_reg_out = mem_read_out;
 
 endmodule
+
