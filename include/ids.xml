@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nf:module xmlns:nf="http://www.NetFPGA.org/NF2_register_system" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.NetFPGA.org/NF2_register_system NF2_register_system.xsd ">
+	<nf:name>ids</nf:name>
+	<nf:prefix>ids</nf:prefix>
+	<nf:location>udp</nf:location>
+	<nf:description>Registers for IDS</nf:description>
+	<nf:blocksize>64</nf:blocksize>
+	<nf:registers>
+		<nf:register>
+			<nf:name>input_type</nf:name>
+			<nf:description>host injection for read/write</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>address</nf:name>
+			<nf:description>address input (8/9 bits for DMEM/IMEM)</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>imem</nf:name>
+			<nf:description>IMEM write register</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>dmem</nf:name>
+			<nf:description>DMEM write register</nf:description>
+			<nf:type>generic_software32</nf:type> </nf:register>
+		<nf:register> <nf:name>dmem_out</nf:name>
+			<nf:description>DMEM Register read</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>alu_intercept</nf:name>
+			<nf:description>Captured ALU result from EX stage</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+	</nf:registers>
+</nf:module>
