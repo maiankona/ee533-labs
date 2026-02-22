@@ -73,7 +73,6 @@ module decode (
     assign PCSrc = branch_taken;
 
     // *** Immediate generation (sign extend 8-bit immediate) ***
-	 wire [31:0] sign_ext_imm_out, branch_target;
     assign sign_ext_imm_out = {{24{imm8[7]}}, imm8};
     assign branch_target = pc_plus_1 + sign_ext_imm_out; // branch target address
 
@@ -86,11 +85,10 @@ module decode (
     assign ALUSrc_out  = id_inst[16];
 
     // *** Memory Read Control ***
-    // For now: assume load when wmem_en = 1 and wreg_en = 1
-    assign mem_read_out = wmem_en & wreg_en;
+    // For now: assume load when wmem_en = 0 and wreg_en = 1
+    assign mem_read_out = (~wmem_en) & wreg_en;
 
     // *** MemToReg: only loads write memory data back ***
     assign mem_to_reg_out = mem_read_out;
-
 
 endmodule
