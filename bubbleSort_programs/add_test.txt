@@ -1,0 +1,5 @@
+4000040a
+40008405
+// put 10 in reg 0
+// add 5 from r0 to r1
+// result should be 15 or 0xF in reg 1
