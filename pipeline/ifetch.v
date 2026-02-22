@@ -1,7 +1,7 @@
 module ifetch (
     input         clk,
     input         rst,
-    input  [8:0]  PCSrc,
+    input  		   PCSrc,
     input  [8:0]  branch_target,
     input         write_to_imem,       
     input  [8:0]  addr_imem_host,   
