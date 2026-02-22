@@ -5,9 +5,9 @@ int main() {
     volatile int *arr = ARR_BASE;
 
     // initialize memory manually
-    arr[0] = 323;
+    arr[0] = 223;
     arr[1] = 123;
-    arr[2] = -455;
+    arr[2] = -55;
     arr[3] = 2;
     arr[4] = 98;
     arr[5] = 125;
