@@ -41,8 +41,9 @@ module decode (
     wire       branch  = id_inst[9];     
     wire       brType  = id_inst[8];  
     wire [7:0] imm8    = id_inst[7:0]; 
+	 wire [4:0] shift;
     
-    assign [4:0] shift = imm8[4:0];
+    assign shift 		  = imm8[4:0];
     
     // 2. Register File Instance
     registerFile32 rf_inst (
@@ -72,8 +73,9 @@ module decode (
     assign PCSrc = branch_taken;
 
     // *** Immediate generation (sign extend 8-bit immediate) ***
+	 wire [31:0] sign_ext_imm_out, branch_target;
     assign sign_ext_imm_out = {{24{imm8[7]}}, imm8};
-    assign branch_target = pc_plus_1 + sign_ext_offset; // branch target address
+    assign branch_target = pc_plus_1 + sign_ext_imm_out; // branch target address
 
     // *** ALU control + shift ***
     assign shift_out    = shift;
@@ -81,7 +83,7 @@ module decode (
 
     // *** ALUSrc: use immediate if immediate field is non-zero ***
     //assign ALUSrc_out = (imm12 != 12'b0);
-    assign ALUSrc_out  = id_instr[16];
+    assign ALUSrc_out  = id_inst[16];
 
     // *** Memory Read Control ***
     // For now: assume load when wmem_en = 0 and wreg_en = 1
