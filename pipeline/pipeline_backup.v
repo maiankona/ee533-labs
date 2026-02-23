@@ -212,8 +212,8 @@ module pipeline_backup(
     // Strengthened condition: memory data only selected when both MemToReg AND MemRead are asserted
     wire [31:0] wb_result =
         (me_mem_to_reg && me_mem_read)
-            ? dmem_raw_output[31:0]
-            : me_alu_result;
+            ? me_alu_result 
+            :dmem_raw_output[31:0];
 
     register_generate #(38) me_wb_bridge (
         .clk(clk),
