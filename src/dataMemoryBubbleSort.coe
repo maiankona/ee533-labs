@@ -1,0 +1,13 @@
+;Test file for a 32x512 instruction memory
+memory_initialization_radix = 10;
+memory_initialization_vector =
+223,
+123,
+55,
+2,
+98,
+125,
+10,
+65,
+56,
+0;
