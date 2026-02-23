@@ -15,8 +15,12 @@ module registerFile32(
     integer i;
 
     // -------- Forwarding Logic (Fixes Read-During-Write) --------
-    assign r1data = (wena && (waddr == r1addr)) ? wdata : rf[r1addr];
-    assign r2data = (wena && (waddr == r2addr)) ? wdata : rf[r2addr];
+    // force r0 to be 0
+    assign r1data = (r1addr == 5'd0) ? 32'd0 :
+                    (wena && (waddr == r1addr)) ? wdata : rf[r1addr];
+    
+    assign r2data = (r2addr == 5'd0) ? 32'd0 :
+                    (wena && (waddr == r2addr)) ? wdata : rf[r2addr];
 
     // -------- Synchronous Write and Reset --------
     always @(posedge clk or posedge clr) begin
@@ -25,7 +29,7 @@ module registerFile32(
             for (i = 0; i < 32; i = i + 1)
                 rf[i] <= 32'b0;
         end 
-        else if (wena) begin
+        else if (wena && waddr != 5'd0) begin // dont write to r0
             rf[waddr] <= wdata;
         end
     end
