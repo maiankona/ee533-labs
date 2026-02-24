@@ -130,10 +130,8 @@ def parse_line(line): # WORKS
     return tokens if tokens else None
 
 def translate(tokens, current_addr, label_map, instructions):
-    """
-    Translate one ARM instruction into one or more custom instructions.
-    Returns number of instructions generated.
-    """
+    print(f"\n>>> Translating line (Addr: {current_addr:03x}): {' '.join(tokens)}")
+    print(f"  Current Label Map: {label_map}")
     instr = tokens[0].upper()
     ops = tokens[1:] if len(tokens) > 1 else [] # should never have only instruction word so else doesnt matter
 
@@ -141,13 +139,12 @@ def translate(tokens, current_addr, label_map, instructions):
 
     # ============ PUSH {fp} ============ not necessary since we manually load data in the beginning
     if instr == 'PUSH':
-        # str fp, [sp, #-4]
-        #instructions.append(encode(0, 1, 13, 11, 0, OPCODES['SUB'], 1, 0, 0, 4))
-        #count += 1
+        print(f"  Instruction PUSH: Skipping as per design.")
         return count
 
     # ============ DATA PROCESSING ============
     if instr in ['ADD', 'SUB', 'AND', 'ORR', 'EOR', 'RSB']:
+        print(f"  Instruction {instr} (Data Processing)")
         WReg = get_reg(ops[0]) # ops[0] if first input after instr word aka destination register
 
         if len(ops) == 2: # for data processing should always have 3 ops
@@ -163,26 +160,32 @@ def translate(tokens, current_addr, label_map, instructions):
 
         if '#' in src: # denotes immediate
             imm_val = get_imm(src)
+            print(f"    Source is immediate: {src} (Value: {imm_val})")
             if -128 <= imm_val <= 255: # can fit within 8 bits we have set for immediate
                 imm = imm_val & 0xFF # modulo 256 for positives, 2's complement for negatives
+                print(f"    Immediate fits in 8 bits. Encoding single instruction.")
                 instructions.append(encode(0, 1, Reg1, 0, WReg, alu, 1, 0, 0, imm))
                 # Wmem_en =0, Wreg_en =1, reg1=reg1 (reading from), reg2 (n/a, default 0), WReg=wreg, aluop=alu, alusrc (use imm)=1, no branches, imm
                 count += 1
             else:
+                print(f"    Immediate too large ({imm_val}). Using r10 as temporary register.")
                 # Large immediate - use temp register r10
                 generated_imm_count = encode_large_immediate(10, imm_val, instructions)
                 count += generated_imm_count
                 # Now do operation with temp register
+                print(f"    Performing final operation with r10 and Reg1 (r{Reg1}).")
                 instructions.append(encode(0, 1, Reg1, 10, WReg, alu, 0, 0, 0, 0)) # final custom opcode
                 count += 1
         else:
             Reg2 = get_reg(src)
+            print(f"    Source is register r{Reg2}. Encoding single instruction.")
             instructions.append(encode(0, 1, Reg1, Reg2, WReg, alu, 0, 0, 0, 0))
             count += 1
         return count
 
     # ============ MOV / MVN ============
     elif instr in ['MOV', 'MVN']:
+        print(f"  Instruction {instr}")
         WReg = get_reg(ops[0])
         alu = OPCODES['ADD'] if instr == 'MOV' else OPCODES['MVN']
 
@@ -190,39 +193,48 @@ def translate(tokens, current_addr, label_map, instructions):
             src = ops[1]
             if '#' in src:
                 imm_val = get_imm(src)
+                print(f"    Source is immediate: {src} (Value: {imm_val})")
                 if -128 <= imm_val <= 255:
                     imm = imm_val & 0xFF
+                    print(f"    Immediate fits in 8 bits. Encoding single instruction.")
                     instructions.append(encode(0, 1, 0, 0, WReg, alu, 1, 0, 0, imm))
                     count += 1
                 else:
+                    print(f"    Immediate too large ({imm_val}). Encoding multiple instructions.")
                     # Large immediate
                     generated_imm_count = encode_large_immediate(WReg, imm_val, instructions)
                     count += generated_imm_count
             else:
                 Reg1 = get_reg(src)
+                print(f"    Source is register r{Reg1}. Encoding single instruction.")
                 instructions.append(encode(0, 1, Reg1, 0, WReg, alu, 0, 0, 0, 0))
                 count += 1
         return count
 
     # ============ CMP ============
     elif instr == 'CMP':
+        print(f"  Instruction {instr}")
         Reg1 = get_reg(ops[0])
         if len(ops) > 1:
             src = ops[1]
             if '#' in src:
                 imm = get_imm(src) & 0xFF
+                print(f"    Comparing r{Reg1} with immediate {imm}.")
                 instructions.append(encode(0, 0, Reg1, 0, 0, OPCODES['CMP'], 1, 0, 0, imm))
             else:
                 Reg2 = get_reg(src)
+                print(f"    Comparing r{Reg1} with r{Reg2}.")
                 instructions.append(encode(0, 0, Reg1, Reg2, 0, OPCODES['CMP'], 0, 0, 0, 0))
         count += 1
         return count
 
     # ============ LDR ============
     elif instr == 'LDR':
+        print(f"  Instruction {instr}")
         WReg = get_reg(ops[0])
 
         if '[' in ops[1]: # LDR rX, [base, #offset]
+            print(f"    Memory address with base register and offset: {ops[1]}")
             base_match = re.search(r'\[([^\]:,]+)', ops[1])
             if base_match:
                 Reg1 = get_reg(base_match.group(1))
@@ -236,15 +248,19 @@ def translate(tokens, current_addr, label_map, instructions):
             if offset < 0:
                 offset = (256 + offset) & 0xFF
 
-            if offset <= 255:
+            if offset <= 255: # Offset fits in 8 bits
+                print(f"    Offset {offset} fits in 8 bits. Encoding single LDR from r{Reg1} + {offset} to r{WReg}")
                 instructions.append(encode(1, 1, Reg1, 0, WReg, OPCODES['ADD'], 1, 0, 0, offset))
                 count += 1
             else:
+                print(f"    Offset {offset} too large. Computing address using r10.")
                 # Large offset - compute address in temp register
                 generated_imm_count = encode_large_immediate(10, offset, instructions)
                 count += generated_imm_count
                 # The LDR for large offset scenario is: calculate address into temp (r10), then LDR from temp to WReg
+                print(f"    Calculate effective address into r10: r{Reg1} + r10 -> r10")
                 instructions.append(encode(0, 1, Reg1, 10, 10, OPCODES['ADD'], 0, 0, 0, 0)) # Calculate effective address into r10
+                print(f"    LDR from r10 to r{WReg}")
                 instructions.append(encode(1, 1, 10, 0, WReg, OPCODES['ADD'], 1, 0, 0, 0)) # LDR from r10 to WReg
                 count += 2
 
@@ -260,18 +276,20 @@ def translate(tokens, current_addr, label_map, instructions):
                     # PC is usually current_addr + 1 instruction (since it's fetched before exec)
                     base_addr = label_map[base_label]
                     effective_target_addr = base_addr + additional_offset
+                    print(f"    Literal pool LDR to '{base_label}' (target addr: {base_addr}) with additional offset {additional_offset}")
 
                     offset = (effective_target_addr - (current_addr + 1)) & 0xFF
+                    print(f"    Calculated PC-relative offset: {offset}")
 
                     # Now, encode LDR using PC (r15) as the base register and the calculated offset
                     instructions.append(encode(1, 1, 15, 0, WReg, OPCODES['ADD'], 1, 0, 0, offset))
                     count += 1
                 else:
-                    # Label not found (shouldn't happen in pass 2 if Pass 1 is correct)
+                    print(f"    ERROR: Literal pool label '{base_label}' not found. Encoding as NOP (load 0).")
                     instructions.append(encode(0, 1, 0, 0, WReg, OPCODES['ADD'], 1, 0, 0, 0))
                     count += 1
             else:
-                # Fallback for unexpected LDR format without brackets and not a literal pool
+                print(f"    ERROR: Unexpected LDR format (not bracketed, not literal pool). Encoding as NOP (load 0).")
                 instructions.append(encode(0, 1, 0, 0, WReg, OPCODES['ADD'], 1, 0, 0, 0))
                 count += 1
 
@@ -279,6 +297,7 @@ def translate(tokens, current_addr, label_map, instructions):
 
     # ============ STR ============
     elif instr == 'STR':
+        print(f"  Instruction {instr}")
         # Reg2 is the DATA we want to store
         Reg2 = get_reg(ops[0])
 
@@ -300,15 +319,12 @@ def translate(tokens, current_addr, label_map, instructions):
             offset_match = re.search(r'#(-?\d+)', address_operand)
             if offset_match:
                 offset = get_imm(offset_match.group(1))
-            elif len(ops) > 2:
-                # Fallback for STR rX, [base], #offset (post-indexed without !) which is not really supported here
-                offset_match = re.search(r'#(-?\d+)', ops[2])
-                if offset_match:
-                    offset = get_imm(offset_match.group(1))
 
+            # Handle signed offset
             if offset < 0:
                 offset = (256 + offset) & 0xFF
 
+            print(f"    Storing r{Reg2} to memory address r{Reg1} + {offset}.")
             # First, the actual store operation
             instructions.append(encode(1, 0, Reg1, Reg2, 0, OPCODES['ADD'], 1, 0, 0, offset))
             count += 1
@@ -317,16 +333,26 @@ def translate(tokens, current_addr, label_map, instructions):
             if post_indexed_writeback:
                 # The instruction to update the base register is a SUB operation for negative offsets
                 # or ADD for positive. Here, #-4 means SUB.
-                instructions.append(encode(0, 1, Reg1, 0, Reg1, OPCODES['SUB'], 1, 0, 0, get_imm(address_operand.split('#')[1])))
+                # Corrected: extract the offset directly from address_operand again or reuse 'offset' var.
+                # The 'offset' variable already holds the correct numeric value (-4). We need its absolute for SUB immediate.
+                # Debug prints for STR writeback
+                print(f"      STR writeback debug: ops[1]={ops[1]}, address_operand='{address_operand}'")
+                print(f"      STR writeback debug: offset_match.group(1)='{offset_match.group(1)}'")
+
+                offset_for_writeback_val = abs(get_imm(offset_match.group(1))) # Get the absolute value of the original offset
+                print(f"    Post-indexed writeback: Updating r{Reg1} with offset {offset_for_writeback_val}.")
+                instructions.append(encode(0, 1, Reg1, 0, Reg1, OPCODES['SUB'], 1, 0, 0, offset_for_writeback_val))
                 count += 1
 
         return count
 
     # ============ LSL ============
     elif instr == 'LSL':
+        print(f"  Instruction {instr}")
         WReg = get_reg(ops[0])
         Reg1 = get_reg(ops[1]) if len(ops) > 1 else WReg # unnecessary check
         shift_amt = get_imm(ops[-1]) & 0x1F
+        print(f"    Shifting r{Reg1} by {shift_amt} to r{WReg}")
 
         instructions.append(encode(0, 1, Reg1, 0, WReg, OPCODES['SLL'], 1, 0, 0, shift_amt))
         count += 1
@@ -334,15 +360,19 @@ def translate(tokens, current_addr, label_map, instructions):
 
     # ============ BRANCHES ============
     elif instr in ['B', 'BEQ', 'BNE', 'BLT', 'BLE', 'BGT', 'BGE']:
+        print(f"  Instruction {instr} (Branch)")
         target_label = ops[0]
         if target_label in label_map: # should always be in label map tbh...
             # Calculate offset for the first instruction
             offset_initial = label_map[target_label] - (current_addr + 1)
             imm_initial = offset_initial & 0xFF
+            print(f"    Target label: {target_label} (Addr: {label_map[target_label]}). Initial PC-relative offset: {offset_initial} (imm: {imm_initial})")
         else:
             imm_initial = 0 # Default to 0 if label not found (shouldn't happen in pass 2)
+            print(f"    Target label: {target_label} not found. Defaulting offset to 0.")
 
         if instr == 'BLE':
+            print(f"    Encoding BLE as BEQ (BrType 0) and BLT (BrType 1).")
             # Generate BEQ instruction
             instructions.append(encode(0, 0, 0, 0, 0, 0, 1, 1, 0, imm_initial)) # BrType 0 for BEQ
             count += 1
@@ -353,6 +383,7 @@ def translate(tokens, current_addr, label_map, instructions):
             if target_label in label_map:
                 offset_blt = label_map[target_label] - (current_addr + 2) # +2 because BEQ already took one slot
                 imm_blt = offset_blt & 0xFF
+                print(f"    BLT PC-relative offset: {offset_blt} (imm: {imm_blt})")
             else:
                 imm_blt = 0 # Default to 0
 
@@ -360,6 +391,7 @@ def translate(tokens, current_addr, label_map, instructions):
             instructions.append(encode(0, 0, 0, 0, 0, 0, 1, 1, 1, imm_blt)) # BrType 1 for BLT
             count += 1
         else:
+            print(f"    Encoding single branch instruction with BrType: {0 if instr in ['B', 'BEQ', 'BNE'] else 1}")
             # Existing logic for other branches
             BrType = 0 if instr in ['B', 'BEQ', 'BNE'] else 1
             instructions.append(encode(0, 0, 0, 0, 0, 0, 1, 1, BrType, imm_initial))
@@ -367,6 +399,7 @@ def translate(tokens, current_addr, label_map, instructions):
         return count
 
     # Unknown instruction - skip
+    print(f"  Unknown instruction: {instr}. Skipping.")
     return 0
 
 def main():
