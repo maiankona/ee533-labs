@@ -222,3 +222,33 @@ memory_initialization_vector=
 01FFFFE0,
 00000000,
 00000000;
+
+// L5 store_data
+WMemEn – 1 bit [31]; 1= we write to data memory, 0= we don't
+WRegEn – 1 bit [30]; 1= we write to register, 0= we don't
+Reg1 – 5 bits [29:25]; address of register 1 to read from (rt)
+Reg2 – 5 bits [24:20]; address of register 2 to read from (rs)
+WReg – 5 bits [19:15]; address of register to write to (rd)
+Alu – 4 bits [14:11]; alu opcode like ADD (0000), SUB (0001), etc.
+ALUSrc – 1 bit [10]; 1= we read the immediate as the 2nd ALU input, 0= we read reg2 as the 2nd ALU input
+Branch – 1 bit [9]; 1 = we are branching, 0= we aren’t
+BrType – 1 bit [8]; 1 = BLT, 0= not BLT
+Imm – 8 bits [7:0]; immediate value; bottom 5 [4:0] is used as shift when ALUop = shift left/right
+
+D60184F4
+00000000
+00000000
+4601A402
+D60104F0
+00000000
+00000000
+44318000
+C6010400
+00000000
+00000000
+D60184F4
+00000000
+00000000
+46018401
+
+
