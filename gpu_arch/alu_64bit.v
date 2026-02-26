@@ -20,14 +20,37 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 // NEED 4 bfloat 16 parallel operations for SIMD
+// [15]    [14:7]  [6:0]
+// Sign    Exp(8)  Mantissa(7)
 
 module alu_64bit(
-    input [63:0] A,
+	input [63:0] A,
     input [63:0] B,
+	input [63:0] C,
     input [3:0] Op,
     input [4:0] shift,
     output reg [63:0] Out
 );
+	// unpack bfloat16 inputs for A B and C
+	wire [15:0] A0 = A[15:0];
+    wire [15:0] A1 = A[31:16];
+    wire [15:0] A2 = A[47:32];
+    wire [15:0] A3 = A[63:48];
+    
+    wire [15:0] B0 = B[15:0];
+    wire [15:0] B1 = B[31:16];
+    wire [15:0] B2 = B[47:32];
+    wire [15:0] B3 = B[63:48];
+    
+    wire [15:0] C0 = C[15:0];
+    wire [15:0] C1 = C[31:16];
+    wire [15:0] C2 = C[47:32];
+    wire [15:0] C3 = C[63:48];
+
+	// simd outputs for 4 threads
+	reg [15:0] out0, out1, out2, out3;
+
+	// IP cores for bfloat16 operations
 	
     always @(*) begin
         case (Op)
