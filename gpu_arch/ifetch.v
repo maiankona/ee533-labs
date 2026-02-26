@@ -5,7 +5,7 @@ module ifetch (
     input  [8:0]  branch_target,
     input         write_to_imem,       
     input  [8:0]  addr_imem_host,   
-    input  [31:0] imem_data,        
+    input  [63:0] imem_data,        
     output [31:0] instruction_out   
 );
     wire [8:0] pc;        // Internal current PC
@@ -27,8 +27,8 @@ module ifetch (
         .d_in(pc_1),
         .q_out(pc)
     );
-
-    mem32bit512 imem_blk (
+// rmbr to update to 64 bit wide module
+    mem64bit512 imem_blk (
         .addr(imem_addr),
         .clk(clk),
         .din(imem_data),
