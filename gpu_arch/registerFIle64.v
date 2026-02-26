@@ -1,4 +1,4 @@
-module registerFile32(
+module registerFile64(
     input clk,
     input clr,
     input [4:0] r1addr, // Reg1 address
