@@ -26,7 +26,7 @@ module decode (
 );
 
     // =====================================================
-    // Instruction Field Parsing
+    // Instruction Field Parsing UPDATE THIS for GPU
     // =====================================================
     wire        wmem_en = id_inst[31];
     wire        wreg_en = id_inst[30];
@@ -106,3 +106,4 @@ module decode (
     assign mem_to_reg_out = is_load;
 
 endmodule
+
