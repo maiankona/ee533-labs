@@ -3,9 +3,9 @@ module memory (
     input         write_to_dmem,    // From Host (Write)
     input         read_req_dmem,     // From Host (Read Request)
     input  [7:0]  addr_dmem_host,   
-    input  [31:0] data_dmem_host,   
+	input  [63:0] data_dmem_host,   
     input  [31:0] pipeline_addr,    
-    input  [31:0] pipeline_data,    
+	input  [63:0] pipeline_data,    
     input         pipeline_we,      
     output [63:0] dmem_out          
 );
@@ -16,8 +16,8 @@ module memory (
     // Select Address: Use host address if host is active, otherwise pipeline address
     wire [7:0]  final_addr = host_active ? addr_dmem_host : pipeline_addr[7:0];
 
-    // Select Data In: Host data is padded to 64-bit for the memory block
-    wire [63:0] final_din  = write_to_dmem ? {32'b0, data_dmem_host} : {32'b0, pipeline_data};
+    // Select Data In: removed padding 
+	wire [63:0] final_din = write_to_dmem ? data_dmem_host : pipeline_data;
 
     // Select Write Enable: High only during a Host Write or a Pipeline Store
     wire        final_we   = write_to_dmem ? 1'b1 : pipeline_we;
