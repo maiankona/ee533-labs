@@ -18,7 +18,8 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-`timescale 1ns / 1ps
+
+// NEED 4 bfloat 16 parallel operations for SIMD
 
 module alu_64bit(
     input [63:0] A,
