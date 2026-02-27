@@ -28,22 +28,24 @@ module decode (
     output [31:0] branch_target    // Branch target address
 );
 
+	//  NEW INSTRUCTION FORMAT FOR GPU
     // 1. Instruction Parsing UPDATE FOR GPU
-    wire       wmem_en = id_inst[31];
-    wire       wreg_en = id_inst[30];
-    wire [4:0] reg1    = id_inst[29:25];
-    wire [4:0] reg2    = id_inst[24:20]; 
-    wire [4:0] wreg1   = id_inst[19:15]; 
+	//wire       wmem_en = id_inst[31]; 
+	//wire       wreg_en = id_inst[30]; automatically on if MAC op
+	wire [2:0] reg1    = id_inst[31:29];
+	wire [2:0] reg2    = id_inst[28:26]; 
+	wire [2:0] wreg1   = id_inst[25:23]; 
 
-    // *** Added parsing fields for ALU/Immediate *** ADD TENSOR ENABLE
-    wire [3:0] alu_op  = id_inst[14:11];  
-    wire       ALUSrc  = id_inst[10];     
-    wire       branch  = id_inst[9];     
-    wire       brType  = id_inst[8];  
-    wire [7:0] imm8    = id_inst[7:0]; 
-	 wire [4:0] shift;
+    // *** Added parsing fields for ALU/Immediate
+	wire [3:0] opcodes  = id_inst[22:19];  
+	wire       ALUSrc  = id_inst[18];     
+	wire       branch  = id_inst[17];     
+	wire       brType  = id_inst[16]; // might not need?
+	wire 		dType = id_inst[15]; 
+	wire [14:0] imm15    = id_inst[14:0]; 
+	wire [5:0] shift;
     
-    assign shift 		  = imm8[4:0];
+	assign shift 		  = imm15[5:0];
     
     // 2. Register File Instance
     registerFile64 rf_inst (
@@ -92,5 +94,6 @@ module decode (
     assign mem_to_reg_out = mem_read_out;
 
 endmodule
+
 
 
