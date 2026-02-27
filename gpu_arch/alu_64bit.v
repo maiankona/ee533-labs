@@ -19,10 +19,6 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 
-// NEED 4 bfloat 16 parallel operations for SIMD
-// [15]    [14:7]  [6:0]
-// Sign    Exp(8)  Mantissa(7)
-
 module alu_64bit(
 	input [63:0] A,
     input [63:0] B,
