@@ -11,7 +11,7 @@ module tensor_unit(
     input rst,
     input [63:0] A,        // 4×BF16 packed
     input [63:0] B,        // 4×BF16 packed
-    input [63:0] C,        // 4×BF16 packed (for FMA accumulator)
+	input [63:0] C,        // 4×BF16 packed (for MAC)
     input [2:0] Op,        // 3 bits for 5 operations
     input op_start,        // Start operation
     output reg [63:0] Out,
