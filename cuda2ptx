@@ -11,6 +11,5 @@ echo "Generated files:"
 echo "  $1.ptx        - PTX assembly"
 echo "  $1_custom.txt - Our custom GPU ISA"
 
-# output is NOT ARM
 # ignore unsupported PTX instructions
 # map only whats supported
