@@ -1,0 +1,159 @@
+#!/usr/bin/perl -w
+use lib "/usr/local/netfpga/lib/Perl5";
+use strict;
+
+# ==============================
+# GPU REGISTER MAP
+# ==============================
+
+my $GPU_INPUT_TYPE_REG   = 0x2000200;
+my $GPU_ADDRESS_REG      = 0x2000204;
+my $GPU_IMEM_REG         = 0x2000208;
+my $GPU_DMEM_WRITE_REG   = 0x200020C;
+my $GPU_DMEM_READ_REG    = 0x2000210;
+
+
+# ==============================
+# Low-Level Register Access
+# ==============================
+
+sub regwrite {
+    my ($addr, $value) = @_;
+    my $cmd = sprintf("regwrite 0x%08x 0x%08x", $addr, $value);
+    system($cmd) == 0 or die "Failed: $cmd\n";
+}
+
+sub regread {
+    my ($addr) = @_;
+    my $cmd = sprintf("regread 0x%08x", $addr);
+    my @out = `$cmd`;
+    if ($out[0] =~ m/Reg (0x[0-9a-f]+).*:\s+(0x[0-9a-f]+)/i) {
+        return $2;
+    }
+    die "Unexpected regread output\n";
+}
+
+sub clear_cmd {
+    regwrite($GPU_INPUT_TYPE_REG, 0x0);
+}
+
+# ==============================
+# IMEM / DMEM Operations
+# ==============================
+
+sub write_imem {
+    my ($addr, $instr) = @_;
+    regwrite($GPU_ADDRESS_REG, $addr);
+    regwrite($GPU_IMEM_REG, $instr);
+    regwrite($GPU_INPUT_TYPE_REG, 0x1);
+    clear_cmd();
+}
+
+sub write_dmem {
+    my ($addr, $data) = @_;
+    regwrite($GPU_ADDRESS_REG, $addr);
+    regwrite($GPU_DMEM_WRITE_REG, $data);
+    regwrite($GPU_INPUT_TYPE_REG, 0x2);
+    clear_cmd();
+}
+
+sub read_dmem {
+    my ($addr) = @_;
+    regwrite($GPU_ADDRESS_REG, $addr);
+    regwrite($GPU_INPUT_TYPE_REG, 0x4);
+
+    my $val = regread($GPU_DMEM_READ_REG);
+    print "DMEM[$addr] = $val\n";
+
+    clear_cmd();
+}
+
+# NEED TO IMPLEMENT IN XML read IMEM
+sub read_imem {
+    my ($addr) = @_;
+    regwrite($GPU_ADDRESS_REG, $addr);
+    regwrite($GPU_INPUT_TYPE_REG, 0x8);  # if implemented
+    my $val = regread($GPU_IMEM_REG);
+    print "IMEM[$addr] = $val\n";
+    clear_cmd();
+}
+
+# ==============================
+# Bulk Loading
+# ==============================
+
+sub load_data {
+    my ($file) = @_;
+    open(my $fh, '<', $file) or die "Cannot open $file: $!";
+
+    my $addr = 0;
+    while (my $line = <$fh>) {
+        chomp($line);
+        $line =~ s/#.*//;
+        next if $line =~ /^\s*$/;
+
+        my $data = $line;
+        $data = ($data < 0) ? ($data + 2**32) : $data;
+
+        write_dmem($addr, $data);
+        printf("Loaded DMEM[%d] = 0x%08x\n", $addr, $data);
+        $addr++;
+    }
+
+    close($fh);
+    print "Loaded $addr data words\n";
+}
+
+sub load_program {
+    my ($file) = @_;
+    open(my $fh, '<', $file) or die "Cannot open $file: $!";
+
+    my $addr = 0;
+    while (my $line = <$fh>) {
+        chomp($line);
+        $line =~ s/#.*//;
+        next if $line =~ /^\s*$/;
+
+        my $instr = hex($line);
+        write_imem($addr, $instr);
+        printf("Loaded IMEM[%d] = 0x%08x\n", $addr, $instr);
+        $addr++;
+    }
+
+    close($fh);
+    print "Loaded $addr instructions\n";
+}
+
+# ==============================
+# CLI
+# ==============================
+
+sub usage {
+    print "Usage:\n";
+    print "  gpu imem <addr> <hex>\n";
+    print "  gpu dmemw <addr> <data>\n";
+    print "  gpu dmemr <addr>\n";
+    print "  gpu load_program <file>\n";
+    print "  gpu load_data <file>\n";
+}
+
+my $cmd = $ARGV[0] or usage() and exit(1);
+
+if ($cmd eq "imem") {
+    write_imem($ARGV[1], hex($ARGV[2]));
+}
+elsif ($cmd eq "dmemw") {
+    write_dmem($ARGV[1], hex($ARGV[2]));
+}
+elsif ($cmd eq "dmemr") {
+    read_dmem($ARGV[1]);
+}
+elsif ($cmd eq "load_program") {
+    load_program($ARGV[1] || "kernel_custom.txt");
+}
+elsif ($cmd eq "load_data") {
+    load_data($ARGV[1] || "kernel_data.txt");
+}
+else {
+    usage();
+}
