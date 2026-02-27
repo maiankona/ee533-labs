@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # CUDA → PTX
-nvcc -O0 -ptx -arch=sm_80 $1.cu -o $1.ptx
+# fmad removes fused MAC, O0 removes optimization, arch ensures bf16 support
+nvcc -O0 -ptx -arch=sm_80 --fmad=false $1.cu -o $1.ptx
 
 # Convert PTX → custom ISA
 python3 ptx2custom.py $1.ptx
