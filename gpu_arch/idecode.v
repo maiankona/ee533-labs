@@ -65,6 +65,7 @@ module decode (
     wire is_NOP      = (opcode == 6'h00); // alu ops
     wire is_ADD      = (opcode == 6'h01);
     wire is_SUB      = (opcode == 6'h02);
+    wire is_CVT = (opcode == 6'0A);
     wire is_VADD_I16 = (opcode == 6'h01);
     wire is_VSUB_I16 = (opcode == 6'h02);
     wire is_VMUL_I16 = (opcode == 6'h08);
@@ -80,7 +81,6 @@ module decode (
     wire raw_LD   = (opcode == 6'h11);
     wire raw_ST   = (opcode == 6'h11);
     wire is_MOVI = (opcode == 6'h19);
-    wire is_CVT = (opcode == 6'1A);
 
     // B-Type opcodes
     wire is_BEQ  = (opcode == 6'h25); // alu ops
@@ -225,5 +225,6 @@ module decode (
     assign alu_ctrl_out     = alu_op;
 
 endmodule
+
 
 
