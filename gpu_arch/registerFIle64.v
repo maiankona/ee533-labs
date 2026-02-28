@@ -27,7 +27,7 @@ module registerFile64(
         if (clr) begin
             // Reset all registers to 0
             for (i = 0; i < 32; i = i + 1)
-                rf[i] <= 32'b0;
+                rf[i] <= 64'b0;
         end 
         else if (wena && waddr != 5'd0) begin // dont write to r0
             rf[waddr] <= wdata;
