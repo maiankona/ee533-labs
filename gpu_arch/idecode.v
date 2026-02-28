@@ -45,6 +45,7 @@ module decode (
     wire [13:0] imm14 = id_inst[15:2];
 
     // width bits for I and R
+    // // 00=16, 01=32, 10=64
     wire [2:0] width = id_inst[1:0];
 
     // B-Type fields  (rs1/rs2 same bit positions as R-type rd/rs1)
@@ -228,6 +229,7 @@ module decode (
     assign alu_ctrl_out     = alu_op;
 
 endmodule
+
 
 
 
