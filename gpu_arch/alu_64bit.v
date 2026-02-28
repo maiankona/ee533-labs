@@ -41,49 +41,49 @@ module alu_64bit(
 	
    always @(*) begin
         case (Op)
-            4'b0000: begin  // ADD
+            4'b0001: begin  // ADD
                 Out0 = A0 + B0;
                 Out1 = A1 + B1;
                 Out2 = A2 + B2;
                 Out3 = A3 + B3;
             end
             
-            4'b0001: begin  // SUB
+            4'b0010: begin  // SUB
                 Out0 = A0 - B0;
                 Out1 = A1 - B1;
                 Out2 = A2 - B2;
                 Out3 = A3 - B3;
             end
             
-            4'b0100: begin  // SLL (shift left)
+            4'b0011: begin  // SLL (shift left)
                 Out0 = A0 << shift;
                 Out1 = A1 << shift;
                 Out2 = A2 << shift;
                 Out3 = A3 << shift;
             end
             
-            4'b0101: begin  // SRL (shift right)
+            4'b0100: begin  // SRL (shift right)
                 Out0 = A0 >> shift;
                 Out1 = A1 >> shift;
                 Out2 = A2 >> shift;
                 Out3 = A3 >> shift;
             end
             
-            4'b0111: begin  // EQ (equal)
+            4'b0101: begin  // EQ (equal)
                 Out0 = (A0 == B0) ? 16'd1 : 16'd0;
                 Out1 = (A1 == B1) ? 16'd1 : 16'd0;
                 Out2 = (A2 == B2) ? 16'd1 : 16'd0;
                 Out3 = (A3 == B3) ? 16'd1 : 16'd0;
             end
             
-            4'b1000: begin  // LT (less than)
+            4'b0110: begin  // LT (less than)
                 Out0 = (A0 < B0) ? 16'd1 : 16'd0;
                 Out1 = (A1 < B1) ? 16'd1 : 16'd0;
                 Out2 = (A2 < B2) ? 16'd1 : 16'd0;
                 Out3 = (A3 < B3) ? 16'd1 : 16'd0;
             end
             
-            4'b1001: begin  // GT (greater than)
+            4'b0111: begin  // GT (greater than)
                 Out0 = (A0 > B0) ? 16'd1 : 16'd0;
                 Out1 = (A1 > B1) ? 16'd1 : 16'd0;
                 Out2 = (A2 > B2) ? 16'd1 : 16'd0;
