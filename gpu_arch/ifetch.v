@@ -39,7 +39,6 @@ module ifetch (
         .q_out(pc)
     );
 
-// rmbr to update to 64 bit wide module
     mem32bit512 imem_blk (
         .addr(imem_addr),
         .clk(clk),
