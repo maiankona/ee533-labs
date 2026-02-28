@@ -180,7 +180,7 @@
 					4'b0110: result16[i] = (A16[i] < B16[i]) ? 16'd1 : 16'd0; // LT
 					4'b0111: result16[i] = (A16[i] > B16[i]) ? 16'd1 : 16'd0; // GT
 					4'b1000: result16[i] = A16[i] * B16[i]; // MULT
-					4'b1001: result16[i] = B[i]; // PASS
+					4'b1001: result16[i] = B16[i]; // PASS
                     default: result16[i] = 16'd0;
                 endcase
             end
@@ -231,7 +231,8 @@
 					result32_hi = B32_hi;
 				end
 				4'b1010: begin // CVT (extend 32 to 64)
-					result32_hi = {{32{result32_lo[31]}}; // must make sure upper 32 padded w/ 0s or is Z fine?
+					result32_lo = A32_lo;
+					result32_hi = {32{A32_lo[31]}}; // must make sure upper 32 padded w/ 0s or is Z fine?
 				default: begin
                     result32_lo = 32'd0;
                     result32_hi = 32'd0;
