@@ -89,6 +89,13 @@ module alu_64bit(
                 Out2 = (A2 > B2) ? 16'd1 : 16'd0;
                 Out3 = (A3 > B3) ? 16'd1 : 16'd0;
             end
+
+            4'b1000: begin  // MULT
+                Out0 = A0 * B0;
+                Out1 = A1 * B1;
+                Out2 = A2 * B2;
+                Out3 = A3 * B3;
+            end
             
             default: begin
                 Out0 = 16'd0;
