@@ -96,6 +96,13 @@ module alu_64bit(
                 Out2 = A2 * B2;
                 Out3 = A3 * B3;
             end
+
+            4'b1001: begin  // PASS (for MOV)
+                Out0 = B0;
+                Out1 = B1;
+                Out2 = B2;
+                Out3 = B3;
+            end
             
             default: begin
                 Out0 = 16'd0;
