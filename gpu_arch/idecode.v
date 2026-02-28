@@ -77,9 +77,10 @@ module decode (
 
     // I-Type opcodes
     wire is_ADDI = (opcode == 6'h11); // alu ops
-    wire is_LD   = (opcode == 6'h11);
-    wire is_ST   = (opcode == 6'h11);
+    wire raw_LD   = (opcode == 6'h11);
+    wire raw_ST   = (opcode == 6'h11);
     wire is_MOVI = (opcode == 6'h19);
+    wire is_CVT = (opcode == 6'1A);
 
     // B-Type opcodes
     wire is_BEQ  = (opcode == 6'h25); // alu ops
@@ -152,8 +153,8 @@ module decode (
     //  1010 = MOVI (pass imm through)
     //  1111 = NOP / HALT / branch (ALU idle)
 
-    reg [3:0] alu_op;
-    assign alu_op = opcode[3:0];
+    reg [3:0] exec_op;
+    assign exec_op = opcode[3:0];
     /*always @(*) begin
         case (opcode)
             6'h01, 6'h10,
@@ -224,4 +225,5 @@ module decode (
     assign alu_ctrl_out     = alu_op;
 
 endmodule
+
 
