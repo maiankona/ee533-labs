@@ -82,8 +82,8 @@ module decode (
 
     // I-Type opcodes
     wire is_ADDI = (opcode == 6'h11); // alu ops
-    wire raw_LD   = (opcode == 6'h11);
-    wire raw_ST   = (opcode == 6'h11);
+    wire is_LD   = (opcode == 6'h11);
+    wire is_ST   = (opcode == 6'h11);
     wire is_MOVI = (opcode == 6'h19);
 
     // B-Type opcodes
@@ -229,6 +229,7 @@ module decode (
     assign alu_ctrl_out     = alu_op;
 
 endmodule
+
 
 
 
