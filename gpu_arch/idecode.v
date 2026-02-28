@@ -62,13 +62,13 @@ module decode (
     // =========================================================
 
     // R-Type opcodes
-    wire is_NOP      = (opcode == 6'h00);
+    wire is_NOP      = (opcode == 6'h00); // alu ops
     wire is_ADD      = (opcode == 6'h01);
     wire is_SUB      = (opcode == 6'h02);
-    wire is_VADD_I16 = (opcode == 6'h03);
-    wire is_VSUB_I16 = (opcode == 6'h04);
-    wire is_VMUL_I16 = (opcode == 6'h05);
-    wire is_VADD_BF16= (opcode == 6'h06);
+    wire is_VADD_I16 = (opcode == 6'h01);
+    wire is_VSUB_I16 = (opcode == 6'h02);
+    wire is_VMUL_I16 = (opcode == 6'h08);
+    wire is_VADD_BF16= (opcode == 6'h06); // tensor ops (make sure they dont pass through ALU)
     wire is_VSUB_BF16= (opcode == 6'h07);
     wire is_VMUL_BF16= (opcode == 6'h08);
     wire is_VMAC_BF16= (opcode == 6'h09);
@@ -76,17 +76,17 @@ module decode (
     wire is_HALT     = (opcode == 6'h0B);
 
     // I-Type opcodes
-    wire is_ADDI = (opcode == 6'h10);
+    wire is_ADDI = (opcode == 6'h11); // alu ops
     wire is_LD   = (opcode == 6'h11);
-    wire is_ST   = (opcode == 6'h12);
-    wire is_MOVI = (opcode == 6'h13);
+    wire is_ST   = (opcode == 6'h11);
+    wire is_MOVI = (opcode == 6'h19);
 
     // B-Type opcodes
-    wire is_BEQ  = (opcode == 6'h20);
-    wire is_BNE  = (opcode == 6'h21);
-    wire is_BLT  = (opcode == 6'h22);
-    wire is_BGT  = (opcode == 6'h23);
-    wire is_JMP  = (opcode == 6'h24);
+    wire is_BEQ  = (opcode == 6'h25); // alu ops
+    //wire is_BNE  = (opcode == 6'h21);
+    wire is_BLT  = (opcode == 6'h26);
+    wire is_BGT  = (opcode == 6'h27);
+    //wire is_JMP  = (opcode == 6'h24);
 
     // =========================================================
     // 4. REGISTER FILE ADDRESS MUX
@@ -153,10 +153,11 @@ module decode (
     //  1111 = NOP / HALT / branch (ALU idle)
 
     reg [3:0] alu_op;
-    always @(*) begin
+    assign alu_op = opcode[3:0];
+    /*always @(*) begin
         case (opcode)
             6'h01, 6'h10,
-            6'h11, 6'h12: alu_op = 4'b0000; // ADD / ADDI / LD / ST
+            6'h11, 6'h12: alu_op = 4'b0001; // ADD / ADDI / LD / ST
             6'h02:         alu_op = 4'b0001; // SUB
             6'h03:         alu_op = 4'b0010; // VADD_I16
             6'h04:         alu_op = 4'b0011; // VSUB_I16
@@ -169,7 +170,7 @@ module decode (
             6'h13:         alu_op = 4'b1010; // MOVI
             default:       alu_op = 4'b1111; // NOP / HALT / branch
         endcase
-    end
+    end */
 
     // =========================================================
     // 8. SIGN-EXTEND IMMEDIATE (16-bit → 64-bit)
@@ -185,13 +186,17 @@ module decode (
     wire less_than = ($signed(r1data) < $signed(r2data));
     wire greater_than = ($signed(r1data) > $signed(r2data));
 
-    wire branch_taken =
+    /*wire branch_taken =
         (is_BEQ &  zero)                     |
         (is_BNE & ~zero)                     |
         (is_BLT &  less_than)                |
         (is_BGT &  greater_than)             |
-        (is_JMP);                             // unconditional
-
+        (is_JMP);                             // unconditional */
+    wire branch_taken =
+        (is_BEQ &  zero)                     |
+        (is_BLT &  less_than)                |
+        (is_BGT &  greater_than);      
+    
     assign PCSrc = branch_taken;
 
     // Branch target: PC+1 + sign-extended 16-bit offset
@@ -219,3 +224,4 @@ module decode (
     assign alu_ctrl_out     = alu_op;
 
 endmodule
+
