@@ -42,8 +42,8 @@ module decode (
     // =========================================================
     // 1. INSTRUCTION FIELD PARSING ? GPU ISA FORMAT
     //
-    //  R:  | opcode(6) | rd(5) | rs1(5) | rs2(5) | unused(11) |
-    //  I:  | opcode(6) | rd(5) | rs1(5) | imm16(16)            |
+    //  R:  | opcode(6) | rd(5) | rs1(5) | rs2(5) | width(2) | unused(9) |
+    //  I:  | opcode(6) | rd(5) | rs1(5) | width(2) | imm14(14)            |
     //  B:  | opcode(6) | rs1(5)| rs2(5) | branch_offset(16)    |
     //
     //  Opcode map (6-bit, top 2 bits = format):
@@ -87,7 +87,11 @@ module decode (
     wire [4:0] rs2 = id_inst[15:11];
 
     // I-Type fields
-    wire [15:0] imm16 = id_inst[15:0];
+    wire [13:0] imm14 = id_inst[15:2];
+
+    
+    // Width 00=16, 01=32, 10=64
+    wire [1:0] width = id_inst[1:0];
 
     // B-Type fields
     wire [4:0]  b_rs1         = id_inst[25:21];
@@ -213,19 +217,19 @@ module decode (
     reg [3:0] exec_op;
     always @(*) begin
         case (opcode)
-            6'h01:                exec_op = 4'h0; // ADD
-            6'h02:                exec_op = 4'h1; // SUB
+            6'h01:                exec_op = 4'h1; // ADD
+            6'h02:                exec_op = 4'h2; // SUB
             6'h03:                exec_op = 4'hA; // CVT
-            6'h04:                exec_op = 4'h2; // VADD_I16
-            6'h05:                exec_op = 4'h3; // VSUB_I16
-            6'h0C:                exec_op = 4'h4; // VMUL_I16
+            6'h04:                exec_op = 4'h1; // VADD_I16
+            6'h05:                exec_op = 4'h2; // VSUB_I16
+            6'h0C:                exec_op = 4'h8; // VMUL_I16
             6'h06:                exec_op = 4'h5; // VADD_BF16
             6'h07:                exec_op = 4'h6; // VSUB_BF16
             6'h08:                exec_op = 4'h7; // VMUL_BF16
             6'h09:                exec_op = 4'h8; // VMAC_BF16
             6'h0A:                exec_op = 4'h9; // VRELU_BF16
-            6'h11, 6'h12, 6'h13: exec_op = 4'h0; // ADDI / LD / ST
-            6'h19:                exec_op = 4'hB; // MOVI
+            6'h11, 6'h12, 6'h13: exec_op = 4'h1; // ADDI / LD / ST
+            6'h19:                exec_op = 4'h9; // MOVI
             default:              exec_op = 4'hF; // NOP / HALT / branch
         endcase
     end
@@ -279,4 +283,5 @@ module decode (
     assign is_vmac_out      = is_VMAC_BF16;
 
 endmodule
+
 
