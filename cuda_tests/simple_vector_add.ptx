@@ -7,7 +7,7 @@
 //
 
 .version 8.4
-.target sm_80
+.target sm_80 // ampere architecture
 .address_size 64
 
 	// .globl	_Z10vector_addPiS_S_
@@ -17,22 +17,24 @@
 	.param .u64 _Z10vector_addPiS_S__param_1,
 	.param .u64 _Z10vector_addPiS_S__param_2
 )
+
+// everything above ignored for opcodes
 {
-	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<7>;
+	.reg .b32 	%r<4>; // 32 bit int physical registers r1-3
+	.reg .b64 	%rd<7>; // 64 bit int physical registers rd1-6
 
 
-	ld.param.u64 	%rd1, [_Z10vector_addPiS_S__param_0];
+	ld.param.u64 	%rd1, [_Z10vector_addPiS_S__param_0]; // load 64 bit unsigned int/address of param0 (first argument) into rd1 
 	ld.param.u64 	%rd2, [_Z10vector_addPiS_S__param_1];
 	ld.param.u64 	%rd3, [_Z10vector_addPiS_S__param_2];
-	cvta.to.global.u64 	%rd4, %rd3;
+	cvta.to.global.u64 	%rd4, %rd3; // convert param space to global space so HW can access
 	cvta.to.global.u64 	%rd5, %rd2;
 	cvta.to.global.u64 	%rd6, %rd1;
-	ld.global.u32 	%r1, [%rd6];
-	ld.global.u32 	%r2, [%rd5];
-	add.s32 	%r3, %r2, %r1;
-	st.global.u32 	[%rd4], %r3;
-	ret;
+	ld.global.u32 	%r1, [%rd6]; // load unsigned 32 bit int from address in rd6
+	ld.global.u32 	%r2, [%rd5]; // load unsigned 32 bit int from address in rd5
+	add.s32 	%r3, %r2, %r1; // integer addition from val in r2 and r1 to r3
+	st.global.u32 	[%rd4], %r3; // store unsigned 32 bit int r3 to address in rd4
+	ret; // return/halt program
 
 }
 
