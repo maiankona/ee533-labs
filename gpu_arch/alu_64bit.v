@@ -233,6 +233,7 @@
 				4'b1010: begin // CVT (extend 32 to 64)
 					result32_lo = A32_lo;
 					result32_hi = {32{A32_lo[31]}};
+				end
 				default: begin
                     result32_lo = 32'd0;
                     result32_hi = 32'd0;
