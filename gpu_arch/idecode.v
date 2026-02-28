@@ -42,7 +42,10 @@ module decode (
     wire [4:0] rs2    = id_inst[15:11];   // R-type only
 
     // I-Type fields  (rs1 same bits as R-type)
-    wire [15:0] imm16 = id_inst[15:0];
+    wire [13:0] imm14 = id_inst[15:2];
+
+    // width bits for I and R
+    wire [2:0] width = id_inst[1:0];
 
     // B-Type fields  (rs1/rs2 same bit positions as R-type rd/rs1)
     wire [4:0]  b_rs1          = id_inst[25:21];
@@ -177,7 +180,7 @@ module decode (
     // 8. SIGN-EXTEND IMMEDIATE (16-bit → 64-bit)
     // =========================================================
 
-    wire [63:0] sign_ext_imm = {{48{imm16[15]}}, imm16};
+    wire [63:0] sign_ext_imm = {{50{imm14[13]}}, imm14};
 
     // =========================================================
     // 9. BRANCH LOGIC
@@ -225,6 +228,7 @@ module decode (
     assign alu_ctrl_out     = alu_op;
 
 endmodule
+
 
 
 
