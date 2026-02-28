@@ -165,6 +165,7 @@ module pipeline_backup(
     register_generate #(278) id_ex_bridge (
         .clk(clk),
         .rst(rst),
+		  .stall(stall),              // hold instruction in place during stall
         .d_in(id_ex_din),
         .q_out(id_ex_q)
     );
@@ -265,6 +266,7 @@ module pipeline_backup(
     register_generate #(202) ex_me_bridge (
         .clk(clk),
         .rst(rst),
+		  .stall(stall),              // hold instruction in place during stall
         .d_in({
             ex_result,          // [201:138]
             tensor_out,         // [137:74]  raw tensor out for bypass
@@ -331,6 +333,7 @@ module pipeline_backup(
     register_generate #(70) me_wb_bridge (
         .clk(clk),
         .rst(rst),
+		  .stall(stall),              // hold instruction in place during stall
         .d_in({wb_result, me_wreg, me_wre}),
         .q_out(me_wb_bundle)
     );
