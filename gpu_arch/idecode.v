@@ -42,8 +42,8 @@ module decode (
     // =========================================================
     // 1. INSTRUCTION FIELD PARSING ? GPU ISA FORMAT
     //
-    //  R:  | opcode(6) | rd(5) | rs1(5) | rs2(5) | width(2) | unused(9) |
-    //  I:  | opcode(6) | rd(5) | rs1(5) | width(2) | imm14(14)            |
+    //  R:  | opcode(6) | rd(5) | rs1(5) | rs2(5) |  unused(9) | width(2) |
+    //  I:  | opcode(6) | rd(5) | rs1(5) | imm14(14) | width(2) | 
     //  B:  | opcode(6) | rs1(5)| rs2(5) | branch_offset(16)    |
     //
     //  Opcode map (6-bit, top 2 bits = format):
@@ -283,5 +283,6 @@ module decode (
     assign is_vmac_out      = is_VMAC_BF16;
 
 endmodule
+
 
 
