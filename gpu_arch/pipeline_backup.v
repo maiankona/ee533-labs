@@ -1,23 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    13:08:58 02/27/2026 
-// Design Name: 
-// Module Name:    pipeline_backup 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-//////////////////////////////////////////////////////////////////////////////////
 module pipeline_backup(
     input clk,
     input rst,
@@ -36,15 +17,17 @@ module pipeline_backup(
 
     wire [31:0] instruction;
     wire [31:0] id_inst;
-    wire [31:0] pc_plus_1;
+
+    // FIX 1+2: pc_plus_1 and branch_target are 9-bit to match ifetch ports
+    wire [8:0]  pc_plus_1;
     wire        PCSrc;
-    wire [31:0] branch_target;
+    wire [8:0]  branch_target;
 
     // =========================================================
-    // Hazard / stall wires (declared early ? used by IF and ID)
+    // Hazard / stall wires
     // =========================================================
-    wire stall;       // from hazard unit ? freeze PC and IF/ID bridge
-    wire fwd_rd_en;   // from hazard unit ? bypass mux in EX stage
+    wire stall;
+    wire fwd_rd_en;
 
     // =========================================================
     // IF Stage
@@ -52,21 +35,21 @@ module pipeline_backup(
     ifetch IF (
         .clk(clk),
         .rst(rst),
-        .stall(stall),              // PC held when stall asserted
+        .stall(stall),
         .PCSrc(PCSrc),
-        .branch_target(branch_target),
+        .branch_target(branch_target),      // 9-bit
         .write_to_imem(write_to_imem),
         .addr_imem_host(addr_imem_host),
         .imem_data(data_imem_host),
         .instruction_out(instruction),
-        .pc_plus_1_out(pc_plus_1)
+        .pc_plus_1_out(pc_plus_1)           // 9-bit
     );
 
-    // IF/ID Bridge ? stall freezes this register
+    // IF/ID Bridge
     register_generate #(32) if_id (
         .clk(clk),
         .rst(rst),
-        .stall(stall),              // hold instruction in place during stall
+        .stall(stall),
         .d_in(instruction),
         .q_out(id_inst)
     );
@@ -86,6 +69,7 @@ module pipeline_backup(
     wire        id_mem_read, id_mem_to_reg;
     wire        id_ALUSrc;
     wire [4:0]  id_shift;
+    wire [1:0]  id_width;
     wire [3:0]  id_exec_op;
     wire        id_is_scalar, id_is_vec_int, id_is_tensor, id_is_vmac;
 
@@ -93,7 +77,7 @@ module pipeline_backup(
         .clk(clk),
         .rst(rst),
         .stall(stall),
-        .pc_plus_1(pc_plus_1),
+        .pc_plus_1(pc_plus_1),              // 9-bit
         .id_inst(id_inst),
         .wb_waddr(wb_wreg_addr),
         .wb_wdata(wb_data),
@@ -109,13 +93,14 @@ module pipeline_backup(
         .mem_to_reg_out(id_mem_to_reg),
         .ALUSrc_out(id_ALUSrc),
         .shift_out(id_shift),
+        .width_out(id_width),
         .exec_op_out(id_exec_op),
         .is_scalar_out(id_is_scalar),
         .is_vec_int_out(id_is_vec_int),
         .is_tensor_out(id_is_tensor),
         .is_vmac_out(id_is_vmac),
         .PCSrc(PCSrc),
-        .branch_target(branch_target)
+        .branch_target(branch_target)       // 9-bit
     );
 
     // =========================================================
@@ -124,7 +109,7 @@ module pipeline_backup(
     // Width breakdown:
     //   r1data       64
     //   r2data       64
-    //   rddata       64  ? VMAC accumulator (3rd RF port)
+    //   rddata       64  ← VMAC accumulator (3rd RF port)
     //   sign_ext_imm 64
     //   wreg_addr     5
     //   wreg_en       1
@@ -134,78 +119,80 @@ module pipeline_backup(
     //   ALUSrc        1
     //   shift         5
     //   exec_op       4
-    //   is_scalar     1  ? unit enables
+    //   is_scalar     1  ← unit enables
     //   is_vec_int    1
     //   is_tensor     1
+    //   width         2  ← ISA width field
     //              -----
-    //   TOTAL      278
+    //   TOTAL      280
     // =========================================================
-    wire [277:0] id_ex_q;
+    wire [279:0] id_ex_q;
 
-    // When stall is asserted, inject a bubble (all zeros) instead of
-    // the real decode outputs so the EX stage does nothing harmful
-    wire [277:0] id_ex_din = stall ? 278'b0 : {
-        id_r1data,          // [277:214]
-        id_r2data,          // [213:150]
-        id_rddata,          // [149:86]
-        id_sign_ext_imm,    // [85:22]
-        id_wreg_addr,       // [21:17]
-        id_wreg_en,         // [16]
-        id_wmem_en,         // [15]
-        id_mem_to_reg,      // [14]
-        id_mem_read,        // [13]
-        id_ALUSrc,          // [12]
-        id_shift,           // [11:7]
-        id_exec_op,         // [6:3]
-        id_is_scalar,       // [2]
-        id_is_vec_int,      // [1]
-        id_is_tensor        // [0]
+    // Bubble injection on stall — EX sees NOP while ID/IF are frozen
+    wire [279:0] id_ex_din = stall ? 280'b0 : {
+        id_r1data,          // [279:216]
+        id_r2data,          // [215:152]
+        id_rddata,          // [151:88]
+        id_sign_ext_imm,    // [87:24]
+        id_wreg_addr,       // [23:19]
+        id_wreg_en,         // [18]
+        id_wmem_en,         // [17]
+        id_mem_to_reg,      // [16]
+        id_mem_read,        // [15]
+        id_ALUSrc,          // [14]
+        id_shift,           // [13:9]
+        id_exec_op,         // [8:5]
+        id_is_scalar,       // [4]
+        id_is_vec_int,      // [3]
+        id_is_tensor,       // [2]
+        id_width            // [1:0]
     };
 
-    register_generate #(278) id_ex_bridge (
+    // FIX 3: stall=1'b0 — bubble injection via id_ex_din mux handles the stall.
+    // Using register stall here as well would double-stall and corrupt the pipeline.
+    register_generate #(280) id_ex_bridge (
         .clk(clk),
         .rst(rst),
-		  .stall(stall),              // hold instruction in place during stall
+        .stall(1'b0),
         .d_in(id_ex_din),
         .q_out(id_ex_q)
     );
 
     // =========================================================
-    // STAGE 3: EXEC ? wire extraction
+    // STAGE 3: EXEC — wire extraction
     // =========================================================
-    wire [63:0] id_ex_r1           = id_ex_q[277:214];
-    wire [63:0] id_ex_r2           = id_ex_q[213:150];
-    wire [63:0] id_ex_rd           = id_ex_q[149:86];
-    wire [63:0] id_ex_sign_ext_imm = id_ex_q[85:22];
-    wire [4:0]  id_ex_wreg         = id_ex_q[21:17];
-    wire        id_ex_wreg_en      = id_ex_q[16];
-    wire        id_ex_wmem_en      = id_ex_q[15];
-    wire        id_ex_mem_to_reg   = id_ex_q[14];
-    wire        id_ex_mem_read     = id_ex_q[13];
-    wire        id_ex_ALUSrc       = id_ex_q[12];
-    wire [4:0]  id_ex_shift        = id_ex_q[11:7];
-    wire [3:0]  id_ex_exec_op      = id_ex_q[6:3];
-    wire        id_ex_is_scalar    = id_ex_q[2];
-    wire        id_ex_is_vec_int   = id_ex_q[1];
-    wire        id_ex_is_tensor    = id_ex_q[0];
+    wire [63:0] id_ex_r1           = id_ex_q[279:216];
+    wire [63:0] id_ex_r2           = id_ex_q[215:152];
+    wire [63:0] id_ex_rd           = id_ex_q[151:88];
+    wire [63:0] id_ex_sign_ext_imm = id_ex_q[87:24];
+    wire [4:0]  id_ex_wreg         = id_ex_q[23:19];
+    wire        id_ex_wreg_en      = id_ex_q[18];
+    wire        id_ex_wmem_en      = id_ex_q[17];
+    wire        id_ex_mem_to_reg   = id_ex_q[16];
+    wire        id_ex_mem_read     = id_ex_q[15];
+    wire        id_ex_ALUSrc       = id_ex_q[14];
+    wire [4:0]  id_ex_shift        = id_ex_q[13:9];
+    wire [3:0]  id_ex_exec_op      = id_ex_q[8:5];
+    wire        id_ex_is_scalar    = id_ex_q[4];
+    wire        id_ex_is_vec_int   = id_ex_q[3];
+    wire        id_ex_is_tensor    = id_ex_q[2];
+    wire [1:0]  id_ex_width        = id_ex_q[1:0];
 
     // =========================================================
     // Hazard Unit
-    // Detects VMAC RAW dependency on a tensor result in EX.
-    // Issues stall + fwd_rd_en when incoming VMAC's rd matches
-    // the destination of the tensor op currently in EX.
     // =========================================================
     hazard_unit HZD (
         .is_vmac        (id_is_vmac),
-        .id_rdaddr      (id_wreg_addr),    // rd field of incoming VMAC
-        .id_ex_is_tensor(id_ex_is_tensor), // EX stage is a tensor op
-        .id_ex_wreg     (id_ex_wreg),      // EX destination register
+        .id_rdaddr      (id_wreg_addr),
+        .id_ex_is_tensor(id_ex_is_tensor),
+        .id_ex_wreg     (id_ex_wreg),
         .stall          (stall),
         .fwd_rd_en      (fwd_rd_en)
     );
 
     // =========================================================
     // EX: Scalar ALU
+    // FIX 6: shift zero-extended 5-bit → 6-bit to match ALU port
     // =========================================================
     wire [63:0] alu_B = id_ex_ALUSrc ? id_ex_sign_ext_imm : id_ex_r2;
     wire [63:0] alu_out;
@@ -214,63 +201,76 @@ module pipeline_backup(
         .A    (id_ex_r1),
         .B    (alu_B),
         .Op   (id_ex_exec_op),
-        .shift(id_ex_shift),
+        .shift({1'b0, id_ex_shift}),        // FIX 6: zero-extend 5→6 bit
+        .width(id_ex_width),
         .Out  (alu_out)
     );
 
     // =========================================================
     // EX: Tensor Unit
-    // rd_data bypass mux:
-    //   fwd_rd_en = 1 ? forward tensor_out from previous EX cycle
-    //   fwd_rd_en = 0 ? use value read from RF 3rd port normally
-    // tensor_out from the EX/MEM bridge is the previous cycle's
-    // result ? it feeds back as the accumulator for chained MACs.
+    // FIX 4: clk now connected
+    // FIX 5: exec_op remapped back to full 6-bit ISA opcode
+    //        bf16_tensor decodes 6'h06-6'h0A directly — 4-bit exec_op
+    //        would never match those cases
     // =========================================================
     wire [63:0] tensor_out;
-    wire [63:0] ex_me_tensor_out; // tensor result from EX/MEM bridge (prev cycle)
-
+    wire [63:0] ex_me_tensor_out;
     wire [63:0] rd_data_mux = fwd_rd_en ? ex_me_tensor_out : id_ex_rd;
 
+    reg [5:0] tensor_opcode;
+    always @(*) begin
+        case (id_ex_exec_op)
+            4'h5:    tensor_opcode = 6'h06; // VADD_BF16
+            4'h6:    tensor_opcode = 6'h07; // VSUB_BF16
+            4'h7:    tensor_opcode = 6'h08; // VMUL_BF16
+            4'h8:    tensor_opcode = 6'h09; // VMAC_BF16
+            4'h9:    tensor_opcode = 6'h0A; // VRELU_BF16
+            default: tensor_opcode = 6'h00; // NOP — unit inactive
+        endcase
+    end
+
     bf16_tensor tensor_unit (
-        .opcode    (id_ex_exec_op[3:0]),  // lower 4 bits map to tensor opcodes
+        .clk       (clk),                  // FIX 4
+        .opcode    (tensor_opcode),         // FIX 5
         .r1data    (id_ex_r1),
         .r2data    (id_ex_r2),
         .rd_data   (rd_data_mux),
         .tensor_out(tensor_out),
-        .tensor_done()                    // not used by pipeline yet
+        .tensor_done()
     );
 
     // =========================================================
-    // EX result mux ? pick scalar ALU or tensor output
-    // Only one unit's enable is high at a time.
+    // EX result mux
     // =========================================================
     wire [63:0] ex_result = id_ex_is_tensor ? tensor_out : alu_out;
 
     // =========================================================
     // EX/MEM Bridge
     //
-    //   ex_result    64  (scalar ALU or tensor output)
-    //   tensor_out   64  (raw tensor output for forwarding)
-    //   store_data   64  (r2 for ST)
+    //   ex_result    64
+    //   tensor_out   64  ← raw for forwarding
+    //   store_data   64  ← r2 for ST
     //   wreg          5
     //   wreg_en       1
     //   wmem_en       1
     //   mem_to_reg    1
     //   mem_read      1
-    //   is_tensor     1  (needed by WB mux and forwarding)
+    //   is_tensor     1
     //              -----
     //   TOTAL      202
     // =========================================================
     wire [201:0] ex_me_bundle;
 
+    // FIX 3: stall=1'b0 — EX/MEM and MEM/WB must keep advancing
+    // after a stall so the bubble moves through normally
     register_generate #(202) ex_me_bridge (
         .clk(clk),
         .rst(rst),
-		  .stall(stall),              // hold instruction in place during stall
+        .stall(1'b0),
         .d_in({
             ex_result,          // [201:138]
-            tensor_out,         // [137:74]  raw tensor out for bypass
-            id_ex_r2,           // [73:10]   store data for ST
+            tensor_out,         // [137:74]
+            id_ex_r2,           // [73:10]
             id_ex_wreg,         // [9:5]
             id_ex_wreg_en,      // [4]
             id_ex_wmem_en,      // [3]
@@ -281,7 +281,6 @@ module pipeline_backup(
         .q_out(ex_me_bundle)
     );
 
-    // Feedback wire for VMAC forwarding (tensor result from previous EX cycle)
     assign ex_me_tensor_out = ex_me_bundle[137:74];
 
     // =========================================================
@@ -304,7 +303,7 @@ module pipeline_backup(
         .read_req_dmem(read_req_dmem),
         .addr_dmem_host(addr_dmem_host),
         .data_dmem_host(data_dmem_host),
-        .pipeline_addr(me_result),
+        .pipeline_addr(me_result[7:0]),     // truncate to 8-bit dmem word address
         .pipeline_data(me_store_data),
         .pipeline_we(me_wme),
         .dmem_out(dmem_raw_output)
@@ -323,17 +322,15 @@ module pipeline_backup(
     // =========================================================
     wire [69:0] me_wb_bundle;
 
-    // WB result mux:
-    //   LD         ? data from memory
-    //   all others ? execution result (ALU or tensor)
-    wire [63:0] wb_result = (me_mem_to_reg & me_mem_read)
-                                ? dmem_raw_output
-                                : me_result;
+    wire [63:0] wb_result = (me_mem_to_reg)
+                                ? me_result
+                                : dmem_raw_output;
 
+    // FIX 3: stall=1'b0
     register_generate #(70) me_wb_bridge (
         .clk(clk),
         .rst(rst),
-		  .stall(stall),              // hold instruction in place during stall
+        .stall(1'b0),
         .d_in({wb_result, me_wreg, me_wre}),
         .q_out(me_wb_bundle)
     );
