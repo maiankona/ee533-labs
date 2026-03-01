@@ -98,7 +98,7 @@ def translate_line(line):
     
     # ===== LOAD GLOBAL =====
     if 'ld.global' in line:
-        match = re.search(r'ld\.global\.(u\d+)\s+(%\w+),\s*\[(%\w+)\]', line)
+        match = re.search(r'ld\.global\.(u\d+)\s+(%\w+),\s*\[(%\w+)\];?', line)
         if match:
             width = 0b00 if 'u16' in match.group(1) else 0b01 if 'u32' in match.group(1) else 0b10
             rd = get_reg(match.group(2))
@@ -109,7 +109,7 @@ def translate_line(line):
     # ===== ADD =====
     # ADD 32-bit SIMD
     if 'add.s32' in line:
-        match = re.search(r'add\.s32\s+(%\w+),\s*(%\w+),\s*(%\w+)', line)
+        match = re.search(r'add\.s32\s+(%\w+),\s*(%\w+),\s*(%\w+);?', line)
         if match:
             instructions.append(encode_R(0x01, get_reg(match.group(1)), 
                                         get_reg(match.group(2)), 
@@ -118,7 +118,7 @@ def translate_line(line):
     
     # ADD 16-bit SIMD
     if 'add.s16' in line:
-        match = re.search(r'add\.s16\s+(%\w+),\s*(%\w+),\s*(%\w+)', line)
+        match = re.search(r'add\.s16\s+(%\w+),\s*(%\w+),\s*(%\w+);?', line)
         if match:
             instructions.append(encode_R(0x04, get_reg(match.group(1)), 
                                         get_reg(match.group(2)), 
@@ -169,7 +169,7 @@ def translate_line(line):
     
     # ===== STORE GLOBAL =====
     if 'st.global' in line:
-        match = re.search(r'st\.global\.(u\d+)\s+\[(%\w+)\],\s*(%\w+)', line)
+        match = re.search(r'st\.global\.(u\d+)\s+\[(%\w+)\],\s*(%\w+);?', line)
         if match:
             width = 0b00 if 'u16' in match.group(1) else 0b01 if 'u32' in match.group(1) else 0b10
             rs1 = get_reg(match.group(2))
