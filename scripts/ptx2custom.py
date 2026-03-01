@@ -97,22 +97,32 @@ def translate_line(line):
     instructions = []
     
     # ===== LOAD GLOBAL =====
-    if 'ld.global.u16' in line:
-        match = re.search(r'ld\.global\.u16\s+(%\w+),\s*\[(%\w+)\]', line)
+    if 'ld.global' in line:
+        match = re.search(r'ld\.global\.(u\d+)\s+(%\w+),\s*\[(%\w+)\]', line)
         if match:
-            rd = get_reg(match.group(1))
-            rs1 = get_reg(match.group(2))
-            instructions.append(encode_I(0x12, rd, rs1, 0b00, 0))  # LD, width=16
+            width = 0b00 if 'u16' in match.group(1) else 0b01 if 'u32' in match.group(1) else 0b10
+            rd = get_reg(match.group(2))
+            rs1 = get_reg(match.group(3))
+            instructions.append(encode_I(0x12, rd, rs1, width, 0))
         return instructions
     
-    # ===== ADD 16-bit SIMD =====
+    # ===== ADD =====
+    # ADD 32-bit SIMD
+    if 'add.s32' in line:
+        match = re.search(r'add\.s32\s+(%\w+),\s*(%\w+),\s*(%\w+)', line)
+        if match:
+            instructions.append(encode_R(0x01, get_reg(match.group(1)), 
+                                        get_reg(match.group(2)), 
+                                        get_reg(match.group(3)), 0b01))
+        return instructions
+    
+    # ADD 16-bit SIMD
     if 'add.s16' in line:
         match = re.search(r'add\.s16\s+(%\w+),\s*(%\w+),\s*(%\w+)', line)
         if match:
-            rd = get_reg(match.group(1))
-            rs1 = get_reg(match.group(2))
-            rs2 = get_reg(match.group(3))
-            instructions.append(encode_R(0x04, rd, rs1, rs2, 0b00))  # VADD_I16
+            instructions.append(encode_R(0x04, get_reg(match.group(1)), 
+                                        get_reg(match.group(2)), 
+                                        get_reg(match.group(3)), 0b00))
         return instructions
     
     # ===== SUB 16-bit SIMD =====
@@ -158,12 +168,13 @@ def translate_line(line):
         return instructions
     
     # ===== STORE GLOBAL =====
-    if 'st.global.u16' in line:
-        match = re.search(r'st\.global\.u16\s+\[(%\w+)\],\s*(%\w+)', line)
+    if 'st.global' in line:
+        match = re.search(r'st\.global\.(u\d+)\s+\[(%\w+)\],\s*(%\w+)', line)
         if match:
-            rs1 = get_reg(match.group(1))
-            rs2 = get_reg(match.group(2))
-            instructions.append(encode_I(0x13, rs2, rs1, 0b00, 0))  # ST
+            width = 0b00 if 'u16' in match.group(1) else 0b01 if 'u32' in match.group(1) else 0b10
+            rs1 = get_reg(match.group(2))
+            rs2 = get_reg(match.group(3))
+            instructions.append(encode_I(0x13, rs2, rs1, width, 0))
         return instructions
     
     # ===== HALT =====
