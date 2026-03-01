@@ -104,6 +104,9 @@ def translate_line(line):
             rd = get_reg(match.group(2))
             rs1 = get_reg(match.group(3))
             instructions.append(encode_I(0x12, rd, rs1, width, 0))
+            instructions.append(encode_I(0x00, 0, 0, 0, 0)) # NOP 
+            instructions.append(encode_I(0x00, 0, 0, 0, 0)) # NOP
+            instructions.append(encode_I(0x00, 0, 0, 0, 0)) # NOP
         return instructions
     
     # ===== ADD =====
