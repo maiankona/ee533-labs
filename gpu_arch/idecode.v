@@ -2,14 +2,14 @@ module decode (
     input clk,
     input rst,
     input [31:0] id_inst,
-    input [31:0] pc_plus_1,
+    input [8:0]  pc_plus_1,
 
     // Write-back interface
     input [4:0]  wb_waddr,
     input [63:0] wb_wdata,
     input        wb_wena,
 
-    // Stall input from hazard unit ? freeze decode outputs
+    // Stall input from hazard unit — freeze decode outputs
     input stall,
 
     // Register file outputs
@@ -26,9 +26,10 @@ module decode (
     output        mem_to_reg_out,
     output        ALUSrc_out,
     output [4:0]  shift_out,
+    output [1:0]  width_out,          // ISA width field: 00=16b 01=32b 10=64b
 
     // Execution unit dispatch
-    output [3:0]  exec_op_out,      // shared op field ? consumed by enabled unit only
+    output [3:0]  exec_op_out,      // shared op field — consumed by enabled unit only
     output        is_scalar_out,    // enable: scalar ALU
     output        is_vec_int_out,   // enable: vector integer unit
     output        is_tensor_out,    // enable: BF16 tensor unit
@@ -36,14 +37,14 @@ module decode (
 
     // Branch outputs
     output        PCSrc,
-    output [31:0] branch_target
+    output [8:0]  branch_target
 );
 
     // =========================================================
-    // 1. INSTRUCTION FIELD PARSING ? GPU ISA FORMAT
+    // 1. INSTRUCTION FIELD PARSING — GPU ISA FORMAT
     //
-    //  R:  | opcode(6) | rd(5) | rs1(5) | rs2(5) |  unused(9) | width(2) |
-    //  I:  | opcode(6) | rd(5) | rs1(5) | imm14(14) | width(2) | 
+    //  R:  | opcode(6) | rd(5) | rs1(5) | rs2(5) | unused(11) |
+    //  I:  | opcode(6) | rd(5) | rs1(5) | imm16(16)            |
     //  B:  | opcode(6) | rs1(5)| rs2(5) | branch_offset(16)    |
     //
     //  Opcode map (6-bit, top 2 bits = format):
@@ -87,11 +88,8 @@ module decode (
     wire [4:0] rs2 = id_inst[15:11];
 
     // I-Type fields
-    wire [13:0] imm14 = id_inst[15:2];
-
-    
-    // Width 00=16, 01=32, 10=64
-    wire [1:0] width = id_inst[1:0];
+    wire [13:0] imm14 = id_inst[15:2];   // 14-bit immediate
+    wire [1:0]  width = id_inst[1:0];    // 00=16b 01=32b 10=64b
 
     // B-Type fields
     wire [4:0]  b_rs1         = id_inst[25:21];
@@ -195,7 +193,7 @@ module decode (
     wire [4:0] wreg_addr = rd;
 
     // =========================================================
-    // 8. EXEC_OP ? shared operation field
+    // 8. EXEC_OP — shared operation field
     //    Delivered to all execution units; only the unit whose
     //    is_*_out enable is high will act on it.
     //
@@ -235,10 +233,10 @@ module decode (
     end
 
     // =========================================================
-    // 9. SIGN-EXTEND IMMEDIATE (16-bit ? 64-bit)
+    // 9. SIGN-EXTEND IMMEDIATE (16-bit → 64-bit)
     // =========================================================
 
-    wire [63:0] sign_ext_imm = {{48{imm16[15]}}, imm16};
+    wire [63:0] sign_ext_imm = {{50{imm14[13]}}, imm14};
 
     // =========================================================
     // 10. BRANCH LOGIC
@@ -252,11 +250,11 @@ module decode (
                         (is_BLT & less_than)   |
                         (is_BGT & greater_than);
 
-    // Suppress branch while stalled ? don't redirect PC mid-stall
+    // Suppress branch while stalled — don't redirect PC mid-stall
     assign PCSrc = branch_taken & ~stall;
 
-    wire [31:0] sign_ext_branch_32 = {{16{branch_offset[15]}}, branch_offset};
-    assign branch_target = pc_plus_1 + sign_ext_branch_32;
+    wire [8:0] branch_offset_trunc = branch_offset[8:0]; // truncate offset to PC width
+    assign branch_target = pc_plus_1 + branch_offset_trunc;
 
     // =========================================================
     // 11. SHIFT AMOUNT
@@ -276,6 +274,7 @@ module decode (
     assign mem_to_reg_out   = mem_to_reg;
     assign ALUSrc_out       = ALUSrc;
     assign shift_out        = shift;
+    assign width_out        = width;
     assign exec_op_out      = exec_op;
     assign is_scalar_out    = is_scalar;
     assign is_vec_int_out   = is_vec_int;
@@ -283,6 +282,3 @@ module decode (
     assign is_vmac_out      = is_VMAC_BF16;
 
 endmodule
-
-
-
