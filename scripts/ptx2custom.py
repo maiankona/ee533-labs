@@ -6,6 +6,7 @@ Converts NVIDIA PTX assembly to custom 32-bit GPU instructions
 
 import re
 import sys
+import os
 
 # =========================================================
 # INSTRUCTION FORMAT ENCODING
