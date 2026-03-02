@@ -3,6 +3,7 @@
 module register_generate #(parameter WIDTH = 1)(
     input clk,
     input rst,
+	 input stall,
     input [WIDTH-1:0] d_in,
     output [WIDTH-1:0] q_out
     );
@@ -14,6 +15,7 @@ module register_generate #(parameter WIDTH = 1)(
             dff_reset dff_inst (
                 .clk(clk),
                 .rst(rst),
+					 .stall(stall),  
                 .D(d_in[i]),
                 .Q(q_out[i])
             );
