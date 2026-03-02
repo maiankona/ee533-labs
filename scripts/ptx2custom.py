@@ -53,27 +53,49 @@ def encode_B(opcode, rs1, rs2, offset):
 # =========================================================
 # REGISTER MAPPING
 # =========================================================
-# PTX uses virtual registers - map to physical 0-31
+# PTX address registers → Our hardcoded address registers
+# These mappings ensure ld/st use the correct base addresses
+ADDRESS_REGS = {
+    # Parameter load results (ld.param → these)
+    '%rd1': 6, '%rd2': 5, '%rd3': 4,
+    # cvta.to.global results (just pass through)
+    '%rd4': 4, '%rd5': 5, '%rd6': 6,
+    # Address arithmetic results (add.s64 rd10, rd6, ...)
+    '%rd7': 7, '%rd8': 8, '%rd9': 9,
+    '%rd10': 6, '%rd11': 5, '%rd12': 4, '%rd13': 4,
+}
+
 reg_map = {}
-next_reg = 1  # r0 reserved for constants
+next_reg = 1  # Start from r1 for data registers (%rs1, %r1)
 
 def get_reg(ptx_reg):
     """Map PTX virtual register to physical register"""
     global next_reg
+    
+    # Use hardcoded mapping for address registers
+    if ptx_reg in ADDRESS_REGS:
+        return ADDRESS_REGS[ptx_reg]
+    
+    # Allocate data registers dynamically
     if ptx_reg not in reg_map:
+        # Skip reserved address registers (r4-r9)
+        while next_reg >= 4 and next_reg <= 9:
+            next_reg += 1
+        
         if next_reg >= 32:
             print(f"Warning: Out of registers! Reusing r31")
             reg_map[ptx_reg] = 31
         else:
             reg_map[ptx_reg] = next_reg
             next_reg += 1
+    
     return reg_map[ptx_reg]
 
 def reset_regs():
     """Reset register allocator for new function"""
     global reg_map, next_reg
     reg_map = {}
-    next_reg = 1
+    next_reg = 1  # Data registers start at r1
 
 # =========================================================
 # PTX INSTRUCTION TRANSLATION
@@ -229,7 +251,16 @@ def translate_ptx(input_file, output_file):
             
             if line.strip() == '}':
                 in_function = False
-    
+
+    # debugging registers
+    print(f"\nRegister Allocation:")
+    print(f"  Address registers (fixed):")
+    for ptx_reg, phys_reg in sorted(ADDRESS_REGS.items()):
+        print(f"    {ptx_reg} → r{phys_reg}")
+    print(f"  Data registers (dynamic):")
+    for ptx_reg, phys_reg in sorted(reg_map.items(), key=lambda x: x[1]):
+        print(f"    {ptx_reg} → r{phys_reg}")
+   
     # Write output
     with open(output_file, 'w') as f:
         for i, instr in enumerate(all_instructions):
