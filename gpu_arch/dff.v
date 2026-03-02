@@ -3,6 +3,7 @@
 module dff_reset (
     input clk,
     input rst,  // Active-high reset
+	 input stall,
     input D,
     output reg Q
 );
@@ -11,7 +12,7 @@ module dff_reset (
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             Q <= 1'b0;  // Reset output to 0
-        end else begin
+        end else if (!stall) begin
             Q <= D;     // Capture input on the rising edge of clock
         end
     end
