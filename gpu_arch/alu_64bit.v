@@ -103,6 +103,11 @@
                 Out2 = B2;
                 Out3 = B3;
             end
+
+            4'b1010: begin  // only doing 32 to 64
+                A
+                Out0 = {{32{A1[15]}}, A0+A1};
+
             
             default: begin
                 Out0 = 16'd0;
