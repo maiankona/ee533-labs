@@ -8,6 +8,10 @@ import re
 import sys
 import os
 
+ARRAY_A_BASE = 0x0001  # Address where array A starts
+ARRAY_B_BASE = 0x0029  # Address where array B starts
+ARRAY_C_BASE = 0x0051  # Address where array C starts (output)
+
 # =========================================================
 # INSTRUCTION FORMAT ENCODING
 # =========================================================
@@ -208,10 +212,10 @@ def translate_ptx(input_file, output_file):
     
     # ===== ADD INITIALIZATION CODE =====
     # These load the base addresses (like your Lab 6 setup)
-    all_instructions.append(encode_I(0x19, 6, 0, 0b01, 0x00))   # MOVI r6, 0x00 (A base)
-    all_instructions.append(encode_I(0x19, 5, 0, 0b01, 0x0A))   # MOVI r5, 0x0A (B base)
-    all_instructions.append(encode_I(0x19, 4, 0, 0b01, 0x14))   # MOVI r4, 0x14 (C base)
-    all_instructions.append(encode_I(0x19, 7, 0, 0b01, 0x00))   # MOVI r7, 0 (threadIdx=0)
+    all_instructions.append(encode_I(0x19, 6, 0, 0b01, ARRAY_A_BASE))   # MOVI r6, A_base
+    all_instructions.append(encode_I(0x19, 5, 0, 0b01, ARRAY_B_BASE))   # MOVI r5, B_base
+    all_instructions.append(encode_I(0x19, 4, 0, 0b01, ARRAY_C_BASE))   # MOVI r4, C_base
+    all_instructions.append(encode_I(0x19, 7, 0, 0b01, 0x0001))         # MOVI r7, threadIdx
     
     for line in lines:
         if '.visible .entry' in line:
