@@ -79,7 +79,9 @@
     reg signed [31:0] result32_lo, result32_hi;
     reg signed [63:0] result64;
 
-    always @(*) begin
+    always @(A or B or Op or shift or width or
+         mul16_0 or mul16_1 or mul16_2 or mul16_3 or
+         mul32_lo or mul32_hi or mul64) begin
 
         // defaults
         Out = 64'd0;
