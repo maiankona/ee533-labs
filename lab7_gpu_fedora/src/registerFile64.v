@@ -31,7 +31,6 @@ module registerFile64(
     output [63:0] r2data,
     output [63:0] rddata  // RD read data for VMAC accumulator
 );
-    (* ram_style = "block" *) reg [63:0] rf [31:0];
 
     reg [63:0] rf [31:0]; //64-bit data, 32 registers
     integer i;
