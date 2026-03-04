@@ -1,4 +1,4 @@
-module registerFile64_bram(
+module registerFile64(
     input clk,
     input clr,                 // we'll handle reset separately
     input [4:0]  r1addr,
