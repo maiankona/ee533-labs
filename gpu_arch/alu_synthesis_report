@@ -1,0 +1,350 @@
+Release 10.1 - xst K.31 (nt)
+Copyright (c) 1995-2008 Xilinx, Inc.  All rights reserved.
+--> Parameter TMPDIR set to C:/Xilinx/10.1/ISE/ISEexamples/lab7_tb_updated/xst/projnav.tmp
+
+
+Total REAL time to Xst completion: 1.00 secs
+Total CPU time to Xst completion: 0.36 secs
+ 
+--> Parameter xsthdpdir set to C:/Xilinx/10.1/ISE/ISEexamples/lab7_tb_updated/xst
+
+
+Total REAL time to Xst completion: 1.00 secs
+Total CPU time to Xst completion: 0.42 secs
+ 
+--> Reading design: alu_64bit.prj
+
+TABLE OF CONTENTS
+  1) Synthesis Options Summary
+  2) HDL Compilation
+  3) Design Hierarchy Analysis
+  4) HDL Analysis
+  5) HDL Synthesis
+     5.1) HDL Synthesis Report
+  6) Advanced HDL Synthesis
+     6.1) Advanced HDL Synthesis Report
+  7) Low Level Synthesis
+  8) Partition Report
+  9) Final Report
+     9.1) Device utilization summary
+     9.2) Partition Resource Summary
+     9.3) TIMING REPORT
+
+
+=========================================================================
+*                      Synthesis Options Summary                        *
+=========================================================================
+---- Source Parameters
+Input File Name                    : "alu_64bit.prj"
+Input Format                       : mixed
+Ignore Synthesis Constraint File   : NO
+
+---- Target Parameters
+Output File Name                   : "alu_64bit"
+Output Format                      : NGC
+Target Device                      : xc2vp70-6-ff1517
+
+---- Source Options
+Top Module Name                    : alu_64bit
+Automatic FSM Extraction           : YES
+FSM Encoding Algorithm             : Auto
+Safe Implementation                : No
+FSM Style                          : lut
+RAM Extraction                     : Yes
+RAM Style                          : Auto
+ROM Extraction                     : Yes
+Mux Style                          : Auto
+Decoder Extraction                 : YES
+Priority Encoder Extraction        : YES
+Shift Register Extraction          : YES
+Logical Shifter Extraction         : YES
+XOR Collapsing                     : YES
+ROM Style                          : Auto
+Mux Extraction                     : YES
+Resource Sharing                   : YES
+Asynchronous To Synchronous        : NO
+Multiplier Style                   : auto
+Automatic Register Balancing       : No
+
+---- Target Options
+Add IO Buffers                     : YES
+Global Maximum Fanout              : 500
+Add Generic Clock Buffer(BUFG)     : 16
+Register Duplication               : YES
+Slice Packing                      : YES
+Optimize Instantiated Primitives   : NO
+Convert Tristates To Logic         : Yes
+Use Clock Enable                   : Yes
+Use Synchronous Set                : Yes
+Use Synchronous Reset              : Yes
+Pack IO Registers into IOBs        : auto
+Equivalent register Removal        : YES
+
+---- General Options
+Optimization Goal                  : Speed
+Optimization Effort                : 1
+Library Search Order               : alu_64bit.lso
+Keep Hierarchy                     : NO
+Netlist Hierarchy                  : as_optimized
+RTL Output                         : Yes
+Global Optimization                : AllClockNets
+Read Cores                         : YES
+Write Timing Constraints           : NO
+Cross Clock Analysis               : NO
+Hierarchy Separator                : /
+Bus Delimiter                      : <>
+Case Specifier                     : maintain
+Slice Utilization Ratio            : 100
+BRAM Utilization Ratio             : 100
+Verilog 2001                       : YES
+Auto BRAM Packing                  : NO
+Slice Utilization Ratio Delta      : 5
+
+=========================================================================
+
+
+=========================================================================
+*                          HDL Compilation                              *
+=========================================================================
+WARNING:HDLCompilers:176 - Include directory \ee533-lab7\lab7_original\test\ does not exist
+Compiling verilog file "Y:/ee533-lab7/lab7_original/test/alu_64bit.v" in library work
+Module <alu_64bit> compiled
+No errors in compilation
+Analysis of file <"alu_64bit.prj"> succeeded.
+ 
+
+=========================================================================
+*                     Design Hierarchy Analysis                         *
+=========================================================================
+Analyzing hierarchy for module <alu_64bit> in library <work>.
+
+
+=========================================================================
+*                            HDL Analysis                               *
+=========================================================================
+Analyzing top module <alu_64bit>.
+Module <alu_64bit> is correct for synthesis.
+ 
+
+=========================================================================
+*                           HDL Synthesis                               *
+=========================================================================
+
+Performing bidirectional port resolution...
+
+Synthesizing Unit <alu_64bit>.
+    Related source file is "Y:/ee533-lab7/lab7_original/test/alu_64bit.v".
+WARNING:Xst:646 - Signal <R3> is assigned but never used. This unconnected signal will be trimmed during the optimization process.
+WARNING:Xst:646 - Signal <R2> is assigned but never used. This unconnected signal will be trimmed during the optimization process.
+WARNING:Xst:646 - Signal <R1> is assigned but never used. This unconnected signal will be trimmed during the optimization process.
+WARNING:Xst:646 - Signal <R0> is assigned but never used. This unconnected signal will be trimmed during the optimization process.
+WARNING:Xst:643 - "Y:/ee533-lab7/lab7_original/test/alu_64bit.v" line 77: The result of a 16x16-bit multiplication is partially used. Only the 16 least significant bits are used. If you are doing this on purpose, you may safely ignore this warning. Otherwise, make sure you are not losing information, leading to unexpected circuit behavior.
+WARNING:Xst:643 - "Y:/ee533-lab7/lab7_original/test/alu_64bit.v" line 78: The result of a 16x16-bit multiplication is partially used. Only the 16 least significant bits are used. If you are doing this on purpose, you may safely ignore this warning. Otherwise, make sure you are not losing information, leading to unexpected circuit behavior.
+WARNING:Xst:643 - "Y:/ee533-lab7/lab7_original/test/alu_64bit.v" line 79: The result of a 16x16-bit multiplication is partially used. Only the 16 least significant bits are used. If you are doing this on purpose, you may safely ignore this warning. Otherwise, make sure you are not losing information, leading to unexpected circuit behavior.
+WARNING:Xst:643 - "Y:/ee533-lab7/lab7_original/test/alu_64bit.v" line 80: The result of a 16x16-bit multiplication is partially used. Only the 16 least significant bits are used. If you are doing this on purpose, you may safely ignore this warning. Otherwise, make sure you are not losing information, leading to unexpected circuit behavior.
+    Found 16-bit addsub for signal <old_R0_4$addsub0000>.
+    Found 16-bit addsub for signal <old_R1_3$addsub0000>.
+    Found 16-bit addsub for signal <old_R2_2$addsub0000>.
+    Found 16-bit addsub for signal <old_R3_1$addsub0000>.
+    Found 16x16-bit multiplier for signal <R0$mult0001> created at line 77.
+    Found 16x16-bit multiplier for signal <R1$mult0001> created at line 78.
+    Found 16x16-bit multiplier for signal <R2$mult0001> created at line 79.
+    Found 16x16-bit multiplier for signal <R3$mult0001> created at line 80.
+    Summary:
+	inferred   4 Adder/Subtractor(s).
+	inferred   4 Multiplier(s).
+Unit <alu_64bit> synthesized.
+
+INFO:Xst:1767 - HDL ADVISOR - Resource sharing has identified that some arithmetic operations in this design can share the same physical resources for reduced device utilization. For improved clock frequency you may try to disable resource sharing.
+
+=========================================================================
+HDL Synthesis Report
+
+Macro Statistics
+# Multipliers                                          : 4
+ 16x16-bit multiplier                                  : 4
+# Adders/Subtractors                                   : 4
+ 16-bit addsub                                         : 4
+
+=========================================================================
+
+=========================================================================
+*                       Advanced HDL Synthesis                          *
+=========================================================================
+
+Loading device for application Rf_Device from file '2vp70.nph' in environment C:\Xilinx\10.1\ISE.
+
+Synthesizing (advanced) Unit <alu_64bit>.
+INFO:Xst:2385 - HDL ADVISOR - You can improve the performance of the multiplier Mmult_R0_mult0001 by adding 1 register level(s).
+INFO:Xst:2385 - HDL ADVISOR - You can improve the performance of the multiplier Mmult_R1_mult0001 by adding 1 register level(s).
+INFO:Xst:2385 - HDL ADVISOR - You can improve the performance of the multiplier Mmult_R2_mult0001 by adding 1 register level(s).
+INFO:Xst:2385 - HDL ADVISOR - You can improve the performance of the multiplier Mmult_R3_mult0001 by adding 1 register level(s).
+Unit <alu_64bit> synthesized (advanced).
+
+=========================================================================
+Advanced HDL Synthesis Report
+
+Macro Statistics
+# Multipliers                                          : 4
+ 16x16-bit multiplier                                  : 4
+# Adders/Subtractors                                   : 4
+ 16-bit addsub                                         : 4
+
+=========================================================================
+
+=========================================================================
+*                         Low Level Synthesis                           *
+=========================================================================
+
+Optimizing unit <alu_64bit> ...
+
+Mapping all equations...
+Building and optimizing final netlist ...
+Found area constraint ratio of 100 (+ 5) on block alu_64bit, actual ratio is 0.
+
+Final Macro Processing ...
+
+=========================================================================
+Final Register Report
+
+Found no macro
+=========================================================================
+
+=========================================================================
+*                           Partition Report                             *
+=========================================================================
+
+Partition Implementation Status
+-------------------------------
+
+  No Partitions were found in this design.
+
+-------------------------------
+
+=========================================================================
+*                            Final Report                               *
+=========================================================================
+Final Results
+RTL Top Level Output File Name     : alu_64bit.ngr
+Top Level Output File Name         : alu_64bit
+Output Format                      : NGC
+Optimization Goal                  : Speed
+Keep Hierarchy                     : NO
+
+Design Statistics
+# IOs                              : 196
+
+Cell Usage :
+# BELS                             : 321
+#      GND                         : 1
+#      LUT3                        : 128
+#      LUT4                        : 68
+#      MUXCY                       : 60
+#      XORCY                       : 64
+# IO Buffers                       : 196
+#      IBUF                        : 132
+#      OBUF                        : 64
+# MULTs                            : 4
+#      MULT18X18                   : 4
+=========================================================================
+
+Device utilization summary:
+---------------------------
+
+Selected Device : 2vp70ff1517-6 
+
+ Number of Slices:                      108  out of  33088     0%  
+ Number of 4 input LUTs:                196  out of  66176     0%  
+ Number of IOs:                         196
+ Number of bonded IOBs:                 196  out of    964    20%  
+ Number of MULT18X18s:                    4  out of    328     1%  
+
+---------------------------
+Partition Resource Summary:
+---------------------------
+
+  No Partitions were found in this design.
+
+---------------------------
+
+
+=========================================================================
+TIMING REPORT
+
+NOTE: THESE TIMING NUMBERS ARE ONLY A SYNTHESIS ESTIMATE.
+      FOR ACCURATE TIMING INFORMATION PLEASE REFER TO THE TRACE REPORT
+      GENERATED AFTER PLACE-and-ROUTE.
+
+Clock Information:
+------------------
+No clock signals found in this design
+
+Asynchronous Control Signals Information:
+----------------------------------------
+No asynchronous control signals found in this design
+
+Timing Summary:
+---------------
+Speed Grade: -6
+
+   Minimum period: No path found
+   Minimum input arrival time before clock: No path found
+   Maximum output required time after clock: No path found
+   Maximum combinational path delay: 9.811ns
+
+Timing Detail:
+--------------
+All values displayed in nanoseconds (ns)
+
+=========================================================================
+Timing constraint: Default path analysis
+  Total number of paths / destination ports: 5920 / 64
+-------------------------------------------------------------------------
+Delay:               9.811ns (Levels of Logic = 22)
+  Source:            Op<1> (PAD)
+  Destination:       Out<63> (PAD)
+
+  Data Path: Op<1> to Out<63>
+                                Gate     Net
+    Cell:in->out      fanout   Delay   Delay  Logical Name (Net Name)
+    ----------------------------------------  ------------
+     IBUF:I->O             4   0.919   0.629  Op_1_IBUF (Op_1_IBUF)
+     LUT4:I0->O           68   0.313   0.878  old_R3_1_mux00005 (old_R3_1_mux0000)
+     LUT3:I2->O            1   0.313   0.000  Maddsub_old_R3_1_addsub0000_lut<0> (Maddsub_old_R3_1_addsub0000_lut<0>)
+     MUXCY:S->O            1   0.377   0.000  Maddsub_old_R3_1_addsub0000_cy<0> (Maddsub_old_R3_1_addsub0000_cy<0>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<1> (Maddsub_old_R3_1_addsub0000_cy<1>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<2> (Maddsub_old_R3_1_addsub0000_cy<2>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<3> (Maddsub_old_R3_1_addsub0000_cy<3>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<4> (Maddsub_old_R3_1_addsub0000_cy<4>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<5> (Maddsub_old_R3_1_addsub0000_cy<5>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<6> (Maddsub_old_R3_1_addsub0000_cy<6>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<7> (Maddsub_old_R3_1_addsub0000_cy<7>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<8> (Maddsub_old_R3_1_addsub0000_cy<8>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<9> (Maddsub_old_R3_1_addsub0000_cy<9>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<10> (Maddsub_old_R3_1_addsub0000_cy<10>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<11> (Maddsub_old_R3_1_addsub0000_cy<11>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<12> (Maddsub_old_R3_1_addsub0000_cy<12>)
+     MUXCY:CI->O           1   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<13> (Maddsub_old_R3_1_addsub0000_cy<13>)
+     MUXCY:CI->O           0   0.042   0.000  Maddsub_old_R3_1_addsub0000_cy<14> (Maddsub_old_R3_1_addsub0000_cy<14>)
+     XORCY:CI->O           1   0.868   0.533  Maddsub_old_R3_1_addsub0000_xor<15> (old_R3_1_addsub0000<15>)
+     LUT4:I0->O            1   0.313   0.533  _old_R3_1<15>_SW0 (N22)
+     LUT3:I0->O            1   0.313   0.390  _old_R3_1<15> (Out_63_OBUF)
+     OBUF:I->O                 2.851          Out_63_OBUF (Out<63>)
+    ----------------------------------------
+    Total                      9.811ns (6.848ns logic, 2.963ns route)
+                                       (69.8% logic, 30.2% route)
+
+=========================================================================
+
+
+Total REAL time to Xst completion: 37.00 secs
+Total CPU time to Xst completion: 36.25 secs
+ 
+--> 
+
+Total memory usage is 236588 kilobytes
+
+Number of errors   :    0 (   0 filtered)
+Number of warnings :    9 (   0 filtered)
+Number of infos    :    5 (   0 filtered)
+
