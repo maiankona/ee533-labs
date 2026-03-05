@@ -308,9 +308,6 @@ def translate_ptx(input_file, output_file):
     
     print(f"\nTranslated {len(all_instructions)} instructions")
     print(f"Hex output: {output_file}")
-    print(f"\nRegister Allocation:")
-    for ptx_reg, phys_reg in sorted(reg_map.items(), key=lambda x: x[1]):
-        print(f"  {ptx_reg} → r{phys_reg}")
 
 # =========================================================
 # ENTRY POINT
