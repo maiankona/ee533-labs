@@ -274,7 +274,7 @@ module decode (
     assign mem_to_reg_out   = mem_to_reg;
     assign ALUSrc_out       = ALUSrc;
     assign shift_out        = shift;
-    assign width_out        = width;
+    assign width_out        = is_scalar ? 2'b10 : (is_vec_int | is_tensor ? 2'b00 : width);
     assign exec_op_out      = exec_op;
     assign is_scalar_out    = is_scalar;
     assign is_vec_int_out   = is_vec_int;
@@ -282,3 +282,4 @@ module decode (
     assign is_vmac_out      = is_VMAC_BF16;
 
 endmodule
+
