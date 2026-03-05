@@ -26,7 +26,7 @@ module decode (
     output        mem_to_reg_out,
     output        ALUSrc_out,
     output [4:0]  shift_out,
-    output [1:0]  width_out,          // ISA width field: 00=16b 01=32b 10=64b
+    //output [1:0]  width_out,          // ISA width field: 00=16b 01=32b 10=64b
 
     // Execution unit dispatch
     output [3:0]  exec_op_out,      // shared op field — consumed by enabled unit only
@@ -89,7 +89,7 @@ module decode (
 
     // I-Type fields
     wire [13:0] imm14 = id_inst[15:2];   // 14-bit immediate
-    wire [1:0]  width = id_inst[1:0];    // 00=16b 01=32b 10=64b
+    //wire [1:0]  width = id_inst[1:0];    // 00=16b 01=32b 10=64b
 
     // B-Type fields
     wire [4:0]  b_rs1         = id_inst[25:21];
@@ -274,7 +274,7 @@ module decode (
     assign mem_to_reg_out   = mem_to_reg;
     assign ALUSrc_out       = ALUSrc;
     assign shift_out        = shift;
-    assign width_out        = is_scalar ? 2'b10 : (is_vec_int | is_tensor ? 2'b00 : width);
+    //assign width_out        = is_scalar ? 2'b10 : (is_vec_int | is_tensor ? 2'b00 : width);
     assign exec_op_out      = exec_op;
     assign is_scalar_out    = is_scalar;
     assign is_vec_int_out   = is_vec_int;
@@ -282,4 +282,5 @@ module decode (
     assign is_vmac_out      = is_VMAC_BF16;
 
 endmodule
+
 
