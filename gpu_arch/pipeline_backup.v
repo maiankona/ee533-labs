@@ -69,7 +69,7 @@ module pipeline_backup(
     wire        id_mem_read, id_mem_to_reg;
     wire        id_ALUSrc;
     wire [4:0]  id_shift;
-    wire [1:0]  id_width;
+    //wire [1:0]  id_width;
     wire [3:0]  id_exec_op;
     wire        id_is_scalar, id_is_vec_int, id_is_tensor, id_is_vmac;
 
@@ -93,7 +93,7 @@ module pipeline_backup(
         .mem_to_reg_out(id_mem_to_reg),
         .ALUSrc_out(id_ALUSrc),
         .shift_out(id_shift),
-        .width_out(id_width),
+        //.width_out(id_width),
         .exec_op_out(id_exec_op),
         .is_scalar_out(id_is_scalar),
         .is_vec_int_out(id_is_vec_int),
@@ -126,10 +126,10 @@ module pipeline_backup(
     //              -----
     //   TOTAL      280
     // =========================================================
-    wire [279:0] id_ex_q;
+    wire [277:0] id_ex_q;
 
     // Bubble injection on stall — EX sees NOP while ID/IF are frozen
-    wire [279:0] id_ex_din = stall ? 280'b0 : {
+    wire [277:0] id_ex_din = stall ? 278'b0 : {
         id_r1data,          // [279:216]
         id_r2data,          // [215:152]
         id_rddata,          // [151:88]
@@ -145,12 +145,12 @@ module pipeline_backup(
         id_is_scalar,       // [4]
         id_is_vec_int,      // [3]
         id_is_tensor,       // [2]
-        id_width            // [1:0]
+        //id_width            // [1:0]
     };
 
     // FIX 3: stall=1'b0 — bubble injection via id_ex_din mux handles the stall.
     // Using register stall here as well would double-stall and corrupt the pipeline.
-    register_generate #(280) id_ex_bridge (
+    register_generate #(278) id_ex_bridge (
         .clk(clk),
         .rst(rst),
         .stall(1'b0),
@@ -176,7 +176,7 @@ module pipeline_backup(
     wire        id_ex_is_scalar    = id_ex_q[4];
     wire        id_ex_is_vec_int   = id_ex_q[3];
     wire        id_ex_is_tensor    = id_ex_q[2];
-    wire [1:0]  id_ex_width        = id_ex_q[1:0];
+    //wire [1:0]  id_ex_width        = id_ex_q[1:0];
 
     // =========================================================
     // Hazard Unit
@@ -202,7 +202,7 @@ module pipeline_backup(
         .B    (alu_B),
         .Op   (id_ex_exec_op),
         .shift({1'b0, id_ex_shift}),        // FIX 6: zero-extend 5→6 bit
-        .width(id_ex_width),
+        //.width(id_ex_width),
         .Out  (alu_out)
     );
 
