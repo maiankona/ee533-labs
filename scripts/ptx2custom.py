@@ -122,40 +122,52 @@ def translate_line(line, hazard_tracker):
     line = line.strip()
     
     # Skip inline asm, comments, directives
-    if any(x in line for x in ['// begin inline asm', '// end inline asm', '{.reg', '}', 'mov.b16']):
+    #if any(x in line for x in ['// begin inline asm', '// end inline asm', '{.reg', '}', 'mov.b16']):
+    #    return []
+    # Skip inline asm markers but NOT instructions inside
+    if '// begin inline asm' in line or '// end inline asm' in line:
+        return []
+    # Skip register declarations only
+    if '{.reg' in line:
+        return []
+    # Skip brace lines
+    if line.strip() in ['{', '}']:
+        return []
+    # Skip mov conversions
+    if 'mov.b16' in line:
         return []
 
     # Getting correct destination registers
     if 'ld.param.u64' in line:
-    match = re.search(r'ld\.param\.u64\s+(%\w+)', line)
-    if match:
-        dst = match.group(1)
-        # Assign base based on the PTX register
-        if dst == '%rd1':
-            addr_source[dst] = 'A'
-        elif dst == '%rd2':
-            addr_source[dst] = 'B'
-        elif dst == '%rd3':
-            addr_source[dst] = 'C'
-        elif dst == '%rd4':
-            addr_source[dst] = 'D'
-    return []    
+        match = re.search(r'ld\.param\.u64\s+(%\w+)', line)
+        if match:
+            dst = match.group(1)
+            # Assign base based on the PTX register
+            if dst == '%rd1':
+                addr_source[dst] = 'A'
+            elif dst == '%rd2':
+                addr_source[dst] = 'B'
+            elif dst == '%rd3':
+                addr_source[dst] = 'C'
+            elif dst == '%rd4':
+                addr_source[dst] = 'D'
+        return []    
     
     if 'cvta.to.global' in line:
-    match = re.search(r'cvta\.to\.global\.\w+\s+(%\w+),\s*(%\w+)', line)
-    if match:
-        dst, src = match.group(1), match.group(2)
-        addr_source[dst] = addr_source.get(src, None)
-    return []
+        match = re.search(r'cvta\.to\.global\.\w+\s+(%\w+),\s*(%\w+)', line)
+        if match:
+            dst, src = match.group(1), match.group(2)
+            addr_source[dst] = addr_source.get(src, None)
+        return []
     
     if 'add.s64' in line:
-    match = re.search(r'add\.s64\s+(%\w+),\s*(%\w+),\s*(%\w+)', line)
-    if match:
-        dst, src1, src2 = match.group(1), match.group(2), match.group(3)
-        # Only propagate base if src1 is a memory pointer
-        if src1 in addr_source:
-            addr_source[dst] = addr_source[src1]
-    # fall through to normal ADD handling
+        match = re.search(r'add\.s64\s+(%\w+),\s*(%\w+),\s*(%\w+)', line)
+        if match:
+            dst, src1, src2 = match.group(1), match.group(2), match.group(3)
+            # Only propagate base if src1 is a memory pointer
+            if src1 in addr_source:
+                addr_source[dst] = addr_source[src1]
+        # fall through to normal ADD handling
     
     # Skip thread-related operations
     skip_keywords = ['ld.param', 'cvta.to.global', 'mov.u32', 'tid.x',
@@ -231,39 +243,47 @@ def translate_line(line, hazard_tracker):
             hazard_tracker.add_write(rd, 1)
         return instructions
     
-    # ===== FMA BF16 =====
+    # ===== BF16 MUL =====
     if 'fma.rn.bf16' in line:
-        match = re.search(r'fma\.rn\.bf16\s+(%\w+),\s*(%\w+),\s*(%\w+),\s*(\w+)', line)
+        match = re.search(
+            r'fma\.rn\.bf16\s+(%\w+),\s*(%\w+),\s*(%\w+),\s*(\w+);?',
+            line
+        )
         if match:
             rd = get_reg(match.group(1))
             rs1 = get_reg(match.group(2))
             rs2 = get_reg(match.group(3))
-            accum_str = match.group(4)
-            
-            if accum_str.startswith('%'):
-                rs3 = get_reg(accum_str)
-                
-                # Check hazard
+
+            nops_needed = hazard_tracker.check_hazard([rs1, rs2])
+            instructions.extend(hazard_tracker.insert_nops(nops_needed))
+
+            # VMUL opcode
+            instructions.append(encode_R(0x08, rd, rs1, rs2, 0b00))
+            hazard_tracker.tick()
+            hazard_tracker.add_write(rd, 5)  # MUL latency
+        else:
+            match = re.search(
+                    r'fma\.rn\.bf16\s+(%\w+),\s*(%\w+),\s*(%\w+),\s*(%\w+);?',
+                    line
+                )
+            if match:
+                rd = get_reg(match.group(1))
+                rs1 = get_reg(match.group(2))
+                rs2 = get_reg(match.group(3))
+                rs3 = get_reg(match.group(4))  # accumulator
+
                 nops_needed = hazard_tracker.check_hazard([rs1, rs2, rs3])
                 instructions.extend(hazard_tracker.insert_nops(nops_needed))
-                
-                # MOV if needed
+
+                # Move accumulator if needed
                 if rs3 != rd:
-                    instructions.append(encode_I(0x19, rd, rs3, 0, 0b00))
+                    instructions.append(encode_I(0x19, rd, rs3, 0b00, 0))
                     hazard_tracker.tick()
-                
-                # VMAC
+
+                # VMAC opcode
                 instructions.append(encode_R(0x09, rd, rs1, rs2, 0b00))
                 hazard_tracker.tick()
-                hazard_tracker.add_write(rd, 10)  # FMA has 10-cycle latency
-            else:
-                # VMUL only (inline asm with constant)
-                nops_needed = hazard_tracker.check_hazard([rs1, rs2])
-                instructions.extend(hazard_tracker.insert_nops(nops_needed))
-                
-                instructions.append(encode_R(0x08, rd, rs1, rs2, 0b00))
-                hazard_tracker.tick()
-                hazard_tracker.add_write(rd, 5)  # MUL has 5-cycle latency
+                hazard_tracker.add_write(rd, 10)  # FMA latency
         return instructions
     
     # ===== ReLU =====
@@ -350,7 +370,7 @@ def translate_ptx(input_file, output_file):
             instrs = translate_line(line, hazard_tracker)
             all_instructions.extend(instrs)
             
-            if line.strip() == '}':
+            if line.strip() == '}' and 'inline asm' not in line:
                 in_function = False
     
     # Write hex output
@@ -381,6 +401,10 @@ if __name__ == "__main__":
     else:
         base_name = os.path.splitext(input_file)[0]
         output_file = f"{base_name}_custom.txt"
+    
+    translate_ptx(input_file, output_file)
+    print(f"Translation complete!")
+
     
     translate_ptx(input_file, output_file)
     print(f"Translation complete!")
