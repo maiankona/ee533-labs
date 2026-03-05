@@ -14,6 +14,9 @@ ARRAY_B_BASE = 0x0029
 ARRAY_C_BASE = 0x0051
 ARRAY_D_BASE = 0x0079  # For MAC
 
+# Tracks which memory base (A/B/C/D) each PTX address register corresponds to
+addr_source = {}
+
 # =========================================================
 # INSTRUCTION FORMAT ENCODING
 # =========================================================
@@ -121,6 +124,38 @@ def translate_line(line, hazard_tracker):
     # Skip inline asm, comments, directives
     if any(x in line for x in ['// begin inline asm', '// end inline asm', '{.reg', '}', 'mov.b16']):
         return []
+
+    # Getting correct destination registers
+    if 'ld.param.u64' in line:
+    match = re.search(r'ld\.param\.u64\s+(%\w+)', line)
+    if match:
+        dst = match.group(1)
+        # Assign base based on the PTX register
+        if dst == '%rd1':
+            addr_source[dst] = 'A'
+        elif dst == '%rd2':
+            addr_source[dst] = 'B'
+        elif dst == '%rd3':
+            addr_source[dst] = 'C'
+        elif dst == '%rd4':
+            addr_source[dst] = 'D'
+    return []    
+    
+    if 'cvta.to.global' in line:
+    match = re.search(r'cvta\.to\.global\.\w+\s+(%\w+),\s*(%\w+)', line)
+    if match:
+        dst, src = match.group(1), match.group(2)
+        addr_source[dst] = addr_source.get(src, None)
+    return []
+    
+    if 'add.s64' in line:
+    match = re.search(r'add\.s64\s+(%\w+),\s*(%\w+),\s*(%\w+)', line)
+    if match:
+        dst, src1, src2 = match.group(1), match.group(2), match.group(3)
+        # Only propagate base if src1 is a memory pointer
+        if src1 in addr_source:
+            addr_source[dst] = addr_source[src1]
+    # fall through to normal ADD handling
     
     # Skip thread-related operations
     skip_keywords = ['ld.param', 'cvta.to.global', 'mov.u32', 'tid.x',
@@ -139,7 +174,16 @@ def translate_line(line, hazard_tracker):
         if match:
             rd = get_reg(match.group(2))
             rs1 = get_reg(match.group(3))
-            
+            # For LD
+            base = addr_source.get(match.group(3), None)
+            if base == 'A':
+                rs1 = 6
+            elif base == 'B':
+                rs1 = 5
+            elif base == 'C':
+                rs1 = 4
+            elif base == 'D':
+                rs1 = 7       
             # Check hazard: reading rs1
             nops_needed = hazard_tracker.check_hazard([rs1])
             instructions.extend(hazard_tracker.insert_nops(nops_needed))
@@ -243,7 +287,16 @@ def translate_line(line, hazard_tracker):
         if match:
             rs1 = get_reg(match.group(2))  # Address
             rs2 = get_reg(match.group(3))  # Data
-            
+            # For ST
+            base = addr_source.get(match.group(2), None)
+            if base == 'A':
+                rs1 = 6
+            elif base == 'B':
+                rs1 = 5
+            elif base == 'C':
+                rs1 = 4
+            elif base == 'D':
+                rs1 = 7            
             # Check hazard: reading rs1 and rs2
             nops_needed = hazard_tracker.check_hazard([rs1, rs2])
             instructions.extend(hazard_tracker.insert_nops(nops_needed))
