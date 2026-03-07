@@ -12,8 +12,7 @@ module pipeline_backup(
     input [63:0] data_dmem_host,
 
     input         read_req_dmem,
-    output [63:0] data_out_dmem,
-    output [63:0] tensor_out_intercept
+    output [63:0] data_out_dmem
 );
 
     wire [31:0] instruction;
@@ -23,9 +22,6 @@ module pipeline_backup(
     wire [8:0]  pc_plus_1;
     wire        PCSrc;
     wire [8:0]  branch_target;
-
-    // Tensor output intercept
-    //wire [63:0] tensor_out_intercept;
 
     // =========================================================
     // Hazard / stall wires
@@ -113,7 +109,7 @@ module pipeline_backup(
     // Width breakdown:
     //   r1data       64
     //   r2data       64
-    //   rddata       64  ? VMAC accumulator (3rd RF port)
+    //   rddata       64  – VMAC accumulator (3rd RF port)
     //   sign_ext_imm 64
     //   wreg_addr     5
     //   wreg_en       1
@@ -123,16 +119,16 @@ module pipeline_backup(
     //   ALUSrc        1
     //   shift         5
     //   exec_op       4
-    //   is_scalar     1  ? unit enables
+    //   is_scalar     1  – unit enables
     //   is_vec_int    1
     //   is_tensor     1
-    //   width         2  ? ISA width field
+    //   width         2  – ISA width field
     //              -----
     //   TOTAL      280
     // =========================================================
     wire [279:0] id_ex_q;
 
-    // Bubble injection on stall ? EX sees NOP while ID/IF are frozen
+    // Bubble injection on stall – EX sees NOP while ID/IF are frozen
     wire [279:0] id_ex_din = stall ? 280'b0 : {
         id_r1data,          // [279:216]
         id_r2data,          // [215:152]
@@ -152,8 +148,6 @@ module pipeline_backup(
         id_width            // [1:0]
     };
 
-    // FIX 3: stall=1'b0 ? bubble injection via id_ex_din mux handles the stall.
-    // Using register stall here as well would double-stall and corrupt the pipeline.
     register_generate #(280) id_ex_bridge (
         .clk(clk),
         .rst(rst),
@@ -163,7 +157,7 @@ module pipeline_backup(
     );
 
     // =========================================================
-    // STAGE 3: EXEC ? wire extraction
+    // STAGE 3: EXEC – wire extraction
     // =========================================================
     wire [63:0] id_ex_r1           = id_ex_q[279:216];
     wire [63:0] id_ex_r2           = id_ex_q[215:152];
@@ -196,26 +190,19 @@ module pipeline_backup(
 
     // =========================================================
     // EX: Scalar ALU
-    // FIX 6: shift zero-extended 5-bit ? 6-bit to match ALU port
     // =========================================================
     wire [63:0] alu_B = id_ex_ALUSrc ? id_ex_sign_ext_imm : id_ex_r2;
     wire [63:0] alu_out;
 
-    alu_64bit alu_unit (
+    alu_64bit_minimal alu_unit (
         .A    (id_ex_r1),
         .B    (alu_B),
         .Op   (id_ex_exec_op),
-        .shift({1'b0, id_ex_shift}),        // FIX 6: zero-extend 5?6 bit
-        .width(id_ex_width),
         .Out  (alu_out)
     );
 
     // =========================================================
     // EX: Tensor Unit
-    // FIX 4: clk now connected
-    // FIX 5: exec_op remapped back to full 6-bit ISA opcode
-    //        bf16_tensor decodes 6'h06-6'h0A directly ? 4-bit exec_op
-    //        would never match those cases
     // =========================================================
     wire [63:0] tensor_out;
     wire [63:0] ex_me_tensor_out;
@@ -229,21 +216,19 @@ module pipeline_backup(
             4'h7:    tensor_opcode = 6'h08; // VMUL_BF16
             4'h8:    tensor_opcode = 6'h09; // VMAC_BF16
             4'h9:    tensor_opcode = 6'h0A; // VRELU_BF16
-            default: tensor_opcode = 6'h00; // NOP ? unit inactive
+            default: tensor_opcode = 6'h00; // NOP – unit inactive
         endcase
     end
 
     bf16_tensor tensor_unit (
-        .clk       (clk),                  // FIX 4
-        .opcode    (tensor_opcode),         // FIX 5
+        .clk       (clk),
+        .opcode    (tensor_opcode),
         .r1data    (id_ex_r1),
         .r2data    (id_ex_r2),
         .rd_data   (rd_data_mux),
         .tensor_out(tensor_out),
         .tensor_done()
     );
-
-    assign tensor_out_intercept = tensor_out;
 
     // =========================================================
     // EX result mux
@@ -254,8 +239,8 @@ module pipeline_backup(
     // EX/MEM Bridge
     //
     //   ex_result    64
-    //   tensor_out   64  ? raw for forwarding
-    //   store_data   64  ? r2 for ST
+    //   tensor_out   64  – raw for forwarding
+    //   store_data   64  – r2 for ST
     //   wreg          5
     //   wreg_en       1
     //   wmem_en       1
@@ -267,8 +252,6 @@ module pipeline_backup(
     // =========================================================
     wire [201:0] ex_me_bundle;
 
-    // FIX 3: stall=1'b0 ? EX/MEM and MEM/WB must keep advancing
-    // after a stall so the bubble moves through normally
     register_generate #(202) ex_me_bridge (
         .clk(clk),
         .rst(rst),
@@ -320,12 +303,7 @@ module pipeline_backup(
     // =========================================================
     // MEM/WB1 Bridge
     //
-    // Passes ALU/tensor result and control signals forward.
-    // Does NOT yet select dmem_raw_output ? the BRAM (port B)
-    // has a registered read, so dmem_raw_output is only valid
-    // one cycle AFTER the address is presented (i.e. next cycle).
-    //
-    //   me_result    64  (ALU/tensor ? valid now)
+    //   me_result    64  (ALU/tensor – valid now)
     //   wreg          5
     //   wreg_en       1
     //   mem_to_reg    1  (LD flag)
@@ -364,9 +342,11 @@ module pipeline_backup(
     // =========================================================
     wire [69:0] wb1_wb2_bundle;
 
+    // FIX: mux was inverted – LD should select dmem_raw_output,
+    // all other instructions should select the ALU/tensor result
     wire [63:0] wb2_din = (wb1_mem_to_reg & wb1_mem_read)
-                              ? dmem_raw_output   // BRAM output now valid
-                              : wb1_result;       // ALU/tensor result
+                              ? dmem_raw_output  // LD: BRAM output now valid
+                              : wb1_result;      // ALU/tensor result
 
     register_generate #(70) wb1_wb2_bridge (
         .clk(clk),
