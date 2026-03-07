@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
 ARM Assembly to Hex Translator with Custom BLT
-Flow: ARM assembly → ARM hex → Parse & handle BLT → Output hex
+Flow: ARM assembly → objdump hex → Parse & handle BLT → Output hex
 """
 
 import subprocess
-import struct
 import re
 import os
 import sys
 import tempfile
 
-# Custom BLT Encoding
+# custom BLT encoding
 def encode_custom_blt(rs1, rs2, offset):
     """
     Encode custom BLT instruction
@@ -23,31 +22,7 @@ def encode_custom_blt(rs1, rs2, offset):
     instr = (cond << 28) | (typ << 26) | (rs1 << 16) | ((offset & 0xFF) << 4) | rs2
     return instr
 
-def is_blt_instruction(instr):
-    """Check if instruction is BLT (condition code = 1011, branch format)"""
-    cond = (instr >> 28) & 0xF
-    opcode = (instr >> 24) & 0xF
-    
-    # Standard ARM BLT: cond=1011 (B), opcode=1010 (branch)
-    # Or check if it's branch instruction with LT condition
-    return cond == 0xB and ((instr >> 25) & 0x7) == 0x5  # Branch instruction
-
-def extract_blt_info(instr):
-    """Extract rs1, rs2, offset from standard ARM BLT instruction"""
-    # Standard ARM branch: [23:0] = signed offset
-    branch_offset = instr & 0xFFFFFF
-    
-    # Sign extend 24-bit to 32-bit
-    if branch_offset & 0x800000:
-        branch_offset |= 0xFF000000
-    
-    # For your custom encoding, you'll need rs1, rs2
-    # Standard ARM BLT doesn't encode these - they come from previous CMP
-    # So we'll need to track CMP instructions
-    
-    return branch_offset
-
-# ARM Assembly to Hex Conversion
+# ARM assembly to hex via objdump
 def arm_asm_to_hex(asm_file):
     """
     Convert ARM assembly to hex using objdump
@@ -61,7 +36,7 @@ def arm_asm_to_hex(asm_file):
         dump_file = tmp_dump.name
     
     try:
-        # Assemble to object file
+        # assemble to object file
         result = subprocess.run(
             ['arm-none-eabi-gcc', '-c', asm_file, '-o', obj_file],
             capture_output=True, text=True
@@ -72,7 +47,7 @@ def arm_asm_to_hex(asm_file):
             print(result.stderr)
             return None
         
-        # Disassemble to get hex opcodes
+        # disassemble to get hex opcodes
         result = subprocess.run(
             ['arm-none-eabi-objdump', '-d', obj_file],
             capture_output=True, text=True
@@ -83,11 +58,11 @@ def arm_asm_to_hex(asm_file):
             print(result.stderr)
             return None
         
-        # Write objdump output
+        # write objdump output
         with open(dump_file, 'w') as f:
             f.write(result.stdout)
         
-        # Parse objdump output
+        # parse objdump output
         instructions = []
         
         # objdump format:
@@ -99,14 +74,14 @@ def arm_asm_to_hex(asm_file):
             if not line or ':' not in line:
                 continue
             
-            # Parse line: "  4:   e3a02014        mov     r2, #20"
+            # parse line: "  4:   e3a02014        mov     r2, #20"
             match = re.match(r'^\s*([0-9a-f]+):\s+([0-9a-f]+)\s+(.*)$', line)
             if match:
                 addr = int(match.group(1), 16)
                 hex_instr = match.group(2)
                 disasm = match.group(3).strip()
                 
-                # Convert hex string to integer (handle endianness)
+                # convert hex string to integer (handle endianness)
                 instr_int = int(hex_instr, 16)
                 
                 instructions.append((addr, instr_int, disasm))
@@ -114,12 +89,11 @@ def arm_asm_to_hex(asm_file):
         return instructions
     
     finally:
-        # Cleanup
         for f in [obj_file, dump_file]:
             if os.path.exists(f):
                 os.remove(f)
 
-# Parse and Handle BLT
+# parse and handle BLT
 def process_instructions(instructions):
     """
     Process instruction list:
@@ -131,72 +105,56 @@ def process_instructions(instructions):
     prev_cmp_rs1 = None
     prev_cmp_rs2 = None
     
-    for i, instr in enumerate(instructions):
-        # Decode instruction
+    for addr, instr, disasm in instructions:
+        # decode instruction
         cond = (instr >> 28) & 0xF
         typ = (instr >> 26) & 0x3
         opcode = (instr >> 21) & 0xF
         
-        # Track CMP instructions (for BLT register operands)
-        # CMP is: type=00 (data processing), opcode=1010, S-bit=1
-        if typ == 0 and opcode == 0xA and (instr & (1 << 20)):
-            # CMP instruction
-            prev_cmp_rs1 = (instr >> 16) & 0xF  # Rn
-            prev_cmp_rs2 = instr & 0xF          # Rm (if not immediate)
+        if 'cmp' in disasm.lower():
+            # parse CMP r1, r2 from disassembly
+            match = re.search(r'cmp\s+r(\d+),\s*r(\d+)', disasm.lower())
+            if match:
+                prev_cmp_rs1 = int(match.group(1))
+                prev_cmp_rs2 = int(match.group(2))
             
-            # Pass through unchanged
+            # pass through unchanged
             output_instructions.append(instr)
-            print(f"[{i:03d}] 0x{instr:08X}  @ CMP r{prev_cmp_rs1}, r{prev_cmp_rs2}")
+            print(f"[{len(output_instructions)-1:03d}] 0x{instr:08X}  @ {disasm}")
         
-        # Handle BLT Instruction
-        elif cond == 0xB and ((instr >> 25) & 0x7) == 0x5:
-            # This is a BLT (branch with LT condition)
-            
-            # Extract branch offset (24-bit signed)
+        elif 'blt' in disasm.lower():
+            # extract branch offset from instruction
             offset_24bit = instr & 0xFFFFFF
-            if offset_24bit & 0x800000:
+            if offset_24bit & 0x800000:  # sign extend
                 offset_24bit |= 0xFF000000
             
-            # Convert word offset to byte offset, then adjust
-            # ARM branches are PC+8 relative, in words
-            offset = (offset_24bit & 0xFF)  # Truncate to 8-bit for your encoding
+            # ARM branch offset is in words, adjust to byte offset then divide by 4 to get instruction offset
+            offset = (offset_24bit >> 2) & 0xFF
             
-            # Use registers from previous CMP (if available)
+            # use registers from previous CMP
             rs1 = prev_cmp_rs1 if prev_cmp_rs1 is not None else 0
             rs2 = prev_cmp_rs2 if prev_cmp_rs2 is not None else 0
             
-            # Re-encode with custom format
+            # re-encode with custom format
             custom_instr = encode_custom_blt(rs1, rs2, offset)
             
             output_instructions.append(custom_instr)
-            print(f"[{i:03d}] 0x{instr:08X}  → 0x{custom_instr:08X}  @ BLT r{rs1}, r{rs2}, offset={offset} (CUSTOM!)")
+            print(f"[{len(output_instructions)-1:03d}] 0x{instr:08X} → 0x{custom_instr:08X}  @ {disasm} (CUSTOM BLT r{rs1}, r{rs2})")
         
-        # Pass Through All Other Instructions
         else:
             output_instructions.append(instr)
-            
-            # Decode for display
-            if typ == 0:
-                type_str = "ALU"
-            elif typ == 1:
-                type_str = "MEM"
-            elif typ == 2:
-                type_str = "BRANCH"
-            else:
-                type_str = "OTHER"
-            
-            print(f"[{i:03d}] 0x{instr:08X}  @ {type_str}")
+            print(f"[{len(output_instructions)-1:03d}] 0x{instr:08X}  @ {disasm}")
     
     return output_instructions
 
-# Output Generation
 def write_hex_output(instructions, hex_file, verilog_file):
     """Write hex and Verilog output files"""
     
-    # Write plain hex
+    # write plain hex
     with open(hex_file, 'w') as f:
         for instr in instructions:
             f.write(f"0x{instr:08X}\n")
+    
     
     print(f"\n{'='*60}")
     print(f"Output generated:")
@@ -213,23 +171,28 @@ def main():
     output_hex = sys.argv[2] if len(sys.argv) > 2 else "output.hex"
     output_verilog = output_hex.replace('.hex', '_verilog.txt')
     
-    # Step 1: Convert ARM assembly to hex using toolchain
-    print("Step 1: Assembling ARM code")
+    print(f"{'='*60}")
+    print(f"ARM to Hex Translator with Custom BLT")
+    print(f"{'='*60}\n")
+    
+    # Step 1: Convert ARM assembly to hex using objdump
+    print("Step 1: Assembling and extracting hex opcodes")
     instructions = arm_asm_to_hex(input_asm)
     
     if instructions is None:
         print("Assembly failed!")
         sys.exit(1)
     
-    print(f"Generated {len(instructions)} instructions\n")
+    print(f"Extracted {len(instructions)} instructions\n")
     
     # Step 2: Process instructions (handle BLT)
-    print("Step 2: Processing instructions...")
-    output_instructions = process_instructions(instructions)
+    print("Step 2: Processing instructions")
+    instruction_values = process_instructions(instructions)
     print()
     
     # Step 3: Write output
-    write_hex_output(output_instructions, output_hex, output_verilog)
+    print("Step 3: Writing output files")
+    write_hex_output(instruction_values, output_hex, output_verilog)
     
     print("\n Translation complete!\n")
 
