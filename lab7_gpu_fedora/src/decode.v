@@ -1,5 +1,7 @@
+`timescale 1ns / 1ps
 module decode (
     input clk,
+    input clk2x,   // 2x clock for double-clocked register file
     input rst,
     input [31:0] id_inst,
     input [8:0]  pc_plus_1,
@@ -9,7 +11,7 @@ module decode (
     input [63:0] wb_wdata,
     input        wb_wena,
 
-    // Stall input from hazard unit ? freeze decode outputs
+    // Stall input from hazard unit – freeze decode outputs
     input stall,
 
     // Register file outputs
@@ -26,58 +28,19 @@ module decode (
     output        mem_to_reg_out,
     output        ALUSrc_out,
     output [4:0]  shift_out,
-    output [1:0]  width_out,          // ISA width field: 00=16b 01=32b 10=64b
+    output [1:0]  width_out,
 
     // Execution unit dispatch
-    output [3:0]  exec_op_out,      // shared op field ? consumed by enabled unit only
-    output        is_scalar_out,    // enable: scalar ALU
-    output        is_vec_int_out,   // enable: vector integer unit
-    output        is_tensor_out,    // enable: BF16 tensor unit
-    output        is_vmac_out,      // to hazard unit: VMAC RAW check needed
+    output [3:0]  exec_op_out,
+    output        is_scalar_out,
+    output        is_vec_int_out,
+    output        is_tensor_out,
+    output        is_vmac_out,
 
     // Branch outputs
     output        PCSrc,
     output [8:0]  branch_target
 );
-
-    // =========================================================
-    // 1. INSTRUCTION FIELD PARSING ? GPU ISA FORMAT
-    //
-    //  R:  | opcode(6) | rd(5) | rs1(5) | rs2(5) | unused(11) |
-    //  I:  | opcode(6) | rd(5) | rs1(5) | imm16(16)            |
-    //  B:  | opcode(6) | rs1(5)| rs2(5) | branch_offset(16)    |
-    //
-    //  Opcode map (6-bit, top 2 bits = format):
-    //    00_xxxx = R-type
-    //    01_xxxx = I-type
-    //    10_xxxx = B-type
-    //
-    //  R-type (00):
-    //    6'h00 = NOP
-    //    6'h01 = ADD
-    //    6'h02 = SUB
-    //    6'h03 = CVT
-    //    6'h04 = VADD_I16
-    //    6'h05 = VSUB_I16
-    //    6'h06 = VADD_BF16
-    //    6'h07 = VSUB_BF16
-    //    6'h08 = VMUL_BF16
-    //    6'h09 = VMAC_BF16
-    //    6'h0A = VRELU_BF16
-    //    6'h0B = HALT
-    //    6'h0C = VMUL_I16
-    //
-    //  I-type (01):
-    //    6'h11 = ADDI
-    //    6'h12 = LD
-    //    6'h13 = ST
-    //    6'h19 = MOVI
-    //
-    //  B-type (10):
-    //    6'h25 = BEQ
-    //    6'h26 = BLT
-    //    6'h27 = BGT
-    // =========================================================
 
     wire [1:0] fmt    = id_inst[31:30];
     wire [5:0] opcode = id_inst[31:26];
@@ -88,27 +51,20 @@ module decode (
     wire [4:0] rs2 = id_inst[15:11];
 
     // I-Type fields
-    wire [13:0] imm14 = id_inst[15:2];   // 14-bit immediate
-    wire [1:0]  width = id_inst[1:0];    // 00=16b 01=32b 10=64b
+    wire [13:0] imm14 = id_inst[15:2];
+    wire [1:0]  width = id_inst[1:0];
 
     // B-Type fields
     wire [4:0]  b_rs1         = id_inst[25:21];
     wire [4:0]  b_rs2         = id_inst[20:16];
     wire [15:0] branch_offset = id_inst[15:0];
 
-    // =========================================================
-    // 2. FORMAT DECODE
-    // =========================================================
-
+    // Format decode
     wire is_R = (fmt == 2'b00);
     wire is_I = (fmt == 2'b01);
     wire is_B = (fmt == 2'b10);
 
-    // =========================================================
-    // 3. OPCODE DECODE
-    // =========================================================
-
-    // R-Type
+    // Opcode decode
     wire is_NOP       = (opcode == 6'h00);
     wire is_ADD       = (opcode == 6'h01);
     wire is_SUB       = (opcode == 6'h02);
@@ -122,47 +78,31 @@ module decode (
     wire is_VRELU_BF16= (opcode == 6'h0A);
     wire is_HALT      = (opcode == 6'h0B);
     wire is_VMUL_I16  = (opcode == 6'h0C);
+    wire is_ADDI      = (opcode == 6'h11);
+    wire is_LD        = (opcode == 6'h12);
+    wire is_ST        = (opcode == 6'h13);
+    wire is_MOVI      = (opcode == 6'h19);
+    wire is_BEQ       = (opcode == 6'h25);
+    wire is_BLT       = (opcode == 6'h26);
+    wire is_BGT       = (opcode == 6'h27);
 
-    // I-Type
-    wire is_ADDI = (opcode == 6'h11);
-    wire is_LD   = (opcode == 6'h12);
-    wire is_ST   = (opcode == 6'h13);
-    wire is_MOVI = (opcode == 6'h19);
-
-    // B-Type
-    wire is_BEQ  = (opcode == 6'h25);
-    wire is_BLT  = (opcode == 6'h26);
-    wire is_BGT  = (opcode == 6'h27);
-
-    // =========================================================
-    // 4. UNIT GROUPINGS
-    //    Forwarded through ID/EX bridge as unit enables.
-    //    Only the asserted unit acts on exec_op in EX stage.
-    // =========================================================
-
+    // Unit groupings
     wire is_scalar  = is_ADD | is_SUB | is_CVT |
                       is_ADDI | is_LD | is_ST | is_MOVI;
-
     wire is_vec_int = is_VADD_I16 | is_VSUB_I16 | is_VMUL_I16;
-
     wire is_tensor  = is_VADD_BF16 | is_VSUB_BF16 | is_VMUL_BF16 |
                       is_VMAC_BF16 | is_VRELU_BF16;
 
-    // =========================================================
-    // 5. REGISTER FILE ADDRESS MUX
-    // =========================================================
-
+    // Register file address mux
     wire [4:0] r1addr = is_B ? b_rs1 : rs1;
     wire [4:0] r2addr = is_B ? b_rs2 : rs2;
-    wire [4:0] rdaddr = rd;   // 3rd port always reads destination register
-                               // Only meaningful for VMAC; harmless for others
+    wire [4:0] rdaddr = rd;
 
     // =========================================================
-    // 6. REGISTER FILE INSTANCE
+    // Register file — double clocked (write posedge, read negedge)
     // =========================================================
-
-    registerFile64 rf_inst (
-        .clk   (clk),
+    registerFile64BRAM rf_inst (
+        .clk2x (clk2x),        // 2x clock
         .clr   (rst),
         .r1addr(r1addr),
         .r2addr(r2addr),
@@ -175,43 +115,16 @@ module decode (
         .rddata(rddata)
     );
 
-    // =========================================================
-    // 7. CONTROL SIGNAL GENERATION
-    // =========================================================
-
-    // Scalar RF writeback: all R-type (except NOP/HALT) + ADDI/LD/MOVI
-    // Tensor ops also write back to scalar RF so results are visible to
-    // subsequent scalar instructions and MAC chains
+    // Control signals
     wire wreg_en = (is_R & ~is_NOP & ~is_HALT) |
                    is_ADDI | is_LD | is_MOVI;
-
     wire wmem_en    = is_ST;
     wire mem_read   = is_LD;
     wire mem_to_reg = is_LD;
     wire ALUSrc     = is_I;
-
     wire [4:0] wreg_addr = rd;
 
-    // =========================================================
-    // 8. EXEC_OP ? shared operation field
-    //    Delivered to all execution units; only the unit whose
-    //    is_*_out enable is high will act on it.
-    //
-    //  4'h0 = ADD / ADDI / LD / ST (address calc)
-    //  4'h1 = SUB
-    //  4'h2 = VADD_I16
-    //  4'h3 = VSUB_I16
-    //  4'h4 = VMUL_I16
-    //  4'h5 = VADD_BF16
-    //  4'h6 = VSUB_BF16
-    //  4'h7 = VMUL_BF16
-    //  4'h8 = VMAC_BF16
-    //  4'h9 = VRELU_BF16
-    //  4'hA = CVT
-    //  4'hB = MOVI
-    //  4'hF = NOP / HALT / branch (all units idle)
-    // =========================================================
-
+    // exec_op
     reg [3:0] exec_op;
     always @(*) begin
         case (opcode)
@@ -232,16 +145,10 @@ module decode (
         endcase
     end
 
-    // =========================================================
-    // 9. SIGN-EXTEND IMMEDIATE (16-bit ? 64-bit)
-    // =========================================================
-
+    // Sign extend immediate
     wire [63:0] sign_ext_imm = {{50{imm14[13]}}, imm14};
 
-    // =========================================================
-    // 10. BRANCH LOGIC
-    // =========================================================
-
+    // Branch logic
     wire zero         = (r1data == r2data);
     wire less_than    = ($signed(r1data) < $signed(r2data));
     wire greater_than = ($signed(r1data) > $signed(r2data));
@@ -250,22 +157,14 @@ module decode (
                         (is_BLT & less_than)   |
                         (is_BGT & greater_than);
 
-    // Suppress branch while stalled ? don't redirect PC mid-stall
     assign PCSrc = branch_taken & ~stall;
 
-    wire [8:0] branch_offset_trunc = branch_offset[8:0]; // truncate offset to PC width
+    wire [8:0] branch_offset_trunc = branch_offset[8:0];
     assign branch_target = pc_plus_1 + branch_offset_trunc;
-
-    // =========================================================
-    // 11. SHIFT AMOUNT
-    // =========================================================
 
     wire [4:0] shift = rs2[4:0];
 
-    // =========================================================
-    // 12. OUTPUT ASSIGNMENTS
-    // =========================================================
-
+    // Output assignments
     assign wreg_addr_out    = wreg_addr;
     assign wreg_en_out      = wreg_en;
     assign wmem_en_out      = wmem_en;
