@@ -3,20 +3,24 @@ use lib "/usr/local/netfpga/lib/Perl5";
 use strict;
 
 # ==============================
-# GPU REGISTER MAP
+# GPU REGISTER MAP (from ids.xml)
 # ==============================
+my $GPU_INPUT_TYPE_REG   = 0x2000200;  # IDS_INPUT_TYPE
+my $GPU_ADDRESS_REG      = 0x2000204;  # IDS_ADDRESS
+my $GPU_IMEM_REG         = 0x2000208;  # IDS_IMEM
+my $GPU_DMEM_WRITE_REG   = 0x200020C;  # IDS_DMEM
+my $GPU_DMEM_READ_REG    = 0x2000210;  # IDS_DMEM_OUT
+my $GPU_TENSOR_OUT_REG   = 0x2000214;  # IDS_TENSOR_OUT
 
-my $GPU_INPUT_TYPE_REG   = 0x2000200;
-my $GPU_ADDRESS_REG      = 0x2000204;
-my $GPU_IMEM_REG         = 0x2000208;
-my $GPU_DMEM_WRITE_REG   = 0x200020C;
-my $GPU_DMEM_READ_REG    = 0x2000210;
-
+# Command codes
+my $CMD_WRITE_IMEM  = 0x1;
+my $CMD_WRITE_DMEM  = 0x2;
+my $CMD_READ_DMEM   = 0x4;
+my $CMD_START_PIPE  = 0x8;
 
 # ==============================
 # Low-Level Register Access
 # ==============================
-
 sub regwrite {
     my ($addr, $value) = @_;
     my $cmd = sprintf("regwrite 0x%08x 0x%08x", $addr, $value);
@@ -30,7 +34,7 @@ sub regread {
     if ($out[0] =~ m/Reg (0x[0-9a-f]+).*:\s+(0x[0-9a-f]+)/i) {
         return $2;
     }
-    die "Unexpected regread output\n";
+    die "Unexpected regread output from: $cmd\n";
 }
 
 sub clear_cmd {
@@ -40,101 +44,178 @@ sub clear_cmd {
 # ==============================
 # IMEM / DMEM Operations
 # ==============================
-
 sub write_imem {
     my ($addr, $instr) = @_;
     regwrite($GPU_ADDRESS_REG, $addr);
     regwrite($GPU_IMEM_REG, $instr);
-    regwrite($GPU_INPUT_TYPE_REG, 0x1);
+    regwrite($GPU_INPUT_TYPE_REG, $CMD_WRITE_IMEM);
     clear_cmd();
 }
 
 sub write_dmem {
-    my ($addr, $data) = @_;
+    my ($addr, $data_hi, $data_lo) = @_;
+    # DMEM is 64-bit, split into two 32-bit writes
     regwrite($GPU_ADDRESS_REG, $addr);
-    regwrite($GPU_DMEM_WRITE_REG, $data);
-    regwrite($GPU_INPUT_TYPE_REG, 0x2);
+    regwrite($GPU_DMEM_WRITE_REG, $data_hi);  # Upper 32 bits
+    regwrite($GPU_DMEM_WRITE_REG + 4, $data_lo); # Lower 32 bits (if needed)
+    regwrite($GPU_INPUT_TYPE_REG, $CMD_WRITE_DMEM);
     clear_cmd();
 }
 
 sub read_dmem {
     my ($addr) = @_;
     regwrite($GPU_ADDRESS_REG, $addr);
-    regwrite($GPU_INPUT_TYPE_REG, 0x4);
-
-    my $val = regread($GPU_DMEM_READ_REG);
-    print "DMEM[$addr] = $val\n";
-
+    regwrite($GPU_INPUT_TYPE_REG, $CMD_READ_DMEM);
+    my $val_hi = regread($GPU_DMEM_READ_REG);
+    my $val_lo = regread($GPU_DMEM_READ_REG + 4);
+    printf("DMEM[0x%02x] = %s_%s\n", $addr, $val_hi, $val_lo);
     clear_cmd();
+    return ($val_hi, $val_lo);
 }
 
-# NEED TO IMPLEMENT IN XML read IMEM
-sub read_imem {
-    my ($addr) = @_;
-    regwrite($GPU_ADDRESS_REG, $addr);
-    regwrite($GPU_INPUT_TYPE_REG, 0x8);  # if implemented
-    my $val = regread($GPU_IMEM_REG);
-    print "IMEM[$addr] = $val\n";
+sub start_pipeline {
+    print "Starting pipeline execution...\n";
+    regwrite($GPU_INPUT_TYPE_REG, $CMD_START_PIPE);
+    sleep(1);  # Give it time to execute
     clear_cmd();
+    print "Pipeline execution complete.\n";
 }
 
 # ==============================
 # Bulk Loading
 # ==============================
-
 sub load_data {
     my ($file) = @_;
     open(my $fh, '<', $file) or die "Cannot open $file: $!";
-
     my $addr = 0;
+    
+    print "Loading data from $file...\n";
+    
     while (my $line = <$fh>) {
         chomp($line);
-        $line =~ s/#.*//;
-        next if $line =~ /^\s*$/;
-
-        my $data = $line;
-        $data = ($data < 0) ? ($data + 2**32) : $data;
-
-        write_dmem($addr, $data);
-        printf("Loaded DMEM[%d] = 0x%08x\n", $addr, $data);
-        $addr++;
+        $line =~ s/#.*//;         # Remove comments
+        $line =~ s/^\s+|\s+$//g;  # Trim whitespace
+        next if $line eq '';
+        
+        # Expect format: 0xHHHHHHHHHHHHHHHH (16 hex digits for 64-bit)
+        if ($line =~ /^0x([0-9a-fA-F]{16})$/) {
+            my $data64 = $1;
+            my $data_hi = hex(substr($data64, 0, 8));
+            my $data_lo = hex(substr($data64, 8, 8));
+            
+            write_dmem($addr, $data_hi, $data_lo);
+            printf("  DMEM[0x%02x] = 0x%08x%08x\n", $addr, $data_hi, $data_lo);
+            $addr++;
+        } else {
+            print "  Warning: Skipping invalid line: $line\n";
+        }
     }
-
+    
     close($fh);
-    print "Loaded $addr data words\n";
+    print "Loaded $addr data words into DMEM\n";
 }
 
 sub load_program {
     my ($file) = @_;
     open(my $fh, '<', $file) or die "Cannot open $file: $!";
-
     my $addr = 0;
+    
+    print "Loading program from $file...\n";
+    
     while (my $line = <$fh>) {
         chomp($line);
-        $line =~ s/#.*//;
-        next if $line =~ /^\s*$/;
-
-        my $instr = hex($line);
+        $line =~ s/#.*//;         # Remove comments
+        $line =~ s/^\s+|\s+$//g;  # Trim whitespace
+        next if $line eq '';
+        
+        # Expect format: 0xHHHHHHHH (8 hex digits for 32-bit instruction)
+        my $instr;
+        if ($line =~ /^0x([0-9a-fA-F]{8})$/) {
+            $instr = hex($1);
+        } elsif ($line =~ /^([0-9a-fA-F]{8})$/) {
+            $instr = hex($1);
+        } else {
+            print "  Warning: Skipping invalid line: $line\n";
+            next;
+        }
+        
         write_imem($addr, $instr);
-        printf("Loaded IMEM[%d] = 0x%08x\n", $addr, $instr);
+        printf("  IMEM[0x%03x] = 0x%08x\n", $addr, $instr);
         $addr++;
     }
-
+    
     close($fh);
-    print "Loaded $addr instructions\n";
+    print "Loaded $addr instructions into IMEM\n";
+}
+
+# ==============================
+# Test Execution
+# ==============================
+sub run_test {
+    my ($prog_file, $data_file, $result_addr) = @_;
+    
+    print "\n========================================\n";
+    print "GPU TEST EXECUTION\n";
+    print "========================================\n\n";
+    
+    # Load program and data
+    load_program($prog_file);
+    load_data($data_file);
+    
+    # Start execution
+    start_pipeline();
+    
+    # Read results
+    print "\n========================================\n";
+    print "RESULTS\n";
+    print "========================================\n";
+    
+    $result_addr = $result_addr || 0x51;  # Default to ARRAY_C_BASE
+    read_dmem($result_addr);
+    
+    # Read tensor output register
+    my $tensor_out = regread($GPU_TENSOR_OUT_REG);
+    printf("TENSOR_OUT = %s\n", $tensor_out);
+}
+
+# ==============================
+# Show All Registers
+# ==============================
+sub show_all_regs {
+    print "\n========================================\n";
+    print "GPU REGISTER DUMP\n";
+    print "========================================\n";
+    
+    printf("INPUT_TYPE:  %s\n", regread($GPU_INPUT_TYPE_REG));
+    printf("ADDRESS:     %s\n", regread($GPU_ADDRESS_REG));
+    printf("IMEM:        %s\n", regread($GPU_IMEM_REG));
+    printf("DMEM:        %s\n", regread($GPU_DMEM_WRITE_REG));
+    printf("DMEM_OUT:    %s\n", regread($GPU_DMEM_READ_REG));
+    printf("TENSOR_OUT:  %s\n", regread($GPU_TENSOR_OUT_REG));
+    
+    print "\n--- Key DMEM Locations ---\n";
+    read_dmem(0x01);  # ARRAY_A
+    read_dmem(0x29);  # ARRAY_B
+    read_dmem(0x51);  # ARRAY_C
+    read_dmem(0x79);  # ARRAY_D (for MAC)
 }
 
 # ==============================
 # CLI
 # ==============================
-
 sub usage {
     print "Usage:\n";
-    print "  gpu imem <addr> <hex>\n";
-    print "  gpu dmemw <addr> <data>\n";
-    print "  gpu dmemr <addr>\n";
-    print "  gpu load_program <file>\n";
-    print "  gpu load_data <file>\n";
+    print "  gpu imem <addr> <hex_instr>      - Write single instruction\n";
+    print "  gpu dmemw <addr> <hex64>         - Write 64-bit data\n";
+    print "  gpu dmemr <addr>                 - Read DMEM location\n";
+    print "  gpu load_program <file>          - Load instructions from file\n";
+    print "  gpu load_data <file>             - Load data from file\n";
+    print "  gpu start                        - Start pipeline execution\n";
+    print "  gpu test <prog> <data> [result_addr] - Run complete test\n";
+    print "  gpu allregs                      - Show all registers\n";
+    print "\n";
+    print "Example:\n";
+    print "  gpu test vmul_program.txt vmul_data.txt\n";
 }
 
 my $cmd = $ARGV[0] or usage() and exit(1);
@@ -143,7 +224,11 @@ if ($cmd eq "imem") {
     write_imem($ARGV[1], hex($ARGV[2]));
 }
 elsif ($cmd eq "dmemw") {
-    write_dmem($ARGV[1], hex($ARGV[2]));
+    my $data64 = $ARGV[2];
+    $data64 =~ s/^0x//;
+    my $hi = hex(substr($data64, 0, 8));
+    my $lo = hex(substr($data64, 8, 8));
+    write_dmem($ARGV[1], $hi, $lo);
 }
 elsif ($cmd eq "dmemr") {
     read_dmem($ARGV[1]);
@@ -154,6 +239,19 @@ elsif ($cmd eq "load_program") {
 elsif ($cmd eq "load_data") {
     load_data($ARGV[1] || "kernel_data.txt");
 }
+elsif ($cmd eq "start") {
+    start_pipeline();
+}
+elsif ($cmd eq "test") {
+    my $prog = $ARGV[1] || "vmul_program.txt";
+    my $data = $ARGV[2] || "vmul_data.txt";
+    my $result = $ARGV[3] || 0x51;
+    run_test($prog, $data, $result);
+}
+elsif ($cmd eq "allregs") {
+    show_all_regs();
+}
 else {
+    print "Unknown command: $cmd\n";
     usage();
 }
