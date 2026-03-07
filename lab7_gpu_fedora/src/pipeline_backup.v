@@ -13,7 +13,10 @@ module pipeline_backup(
     input [63:0] data_dmem_host,
 
     input         read_req_dmem,
-    output [63:0] data_out_dmem
+    output [63:0] data_out_dmem,
+
+    // Tensor intercept outputs
+    output reg [63:0] tensor_out_intercept
 );
 
     wire [31:0] instruction;
@@ -72,7 +75,7 @@ module pipeline_backup(
 
     decode ID (
         .clk(clk),
-        .clk2x(clk2x),             // 2x clock passed to register file
+        .clk2x(clk2x),
         .rst(rst),
         .stall(stall),
         .pc_plus_1(pc_plus_1),
@@ -134,7 +137,7 @@ module pipeline_backup(
     );
 
     // =========================================================
-    // STAGE 3: EXEC – wire extraction
+    // STAGE 3: EXEC - wire extraction
     // =========================================================
     wire [63:0] id_ex_r1           = id_ex_q[279:216];
     wire [63:0] id_ex_r2           = id_ex_q[215:152];
@@ -238,7 +241,10 @@ module pipeline_backup(
     // =========================================================
     // STAGE 4: MEMORY
     // =========================================================
-    wire [63:0] me_result     = ex_me_bundle[201:138];
+    wire [63:0] me_result = me_is_tensor
+                        ? ex_me_bundle[137:74]   // delayed tensor_out (correctly timed)
+                        : ex_me_bundle[201:138];  // ALU result
+
     wire [63:0] me_store_data = ex_me_bundle[73:10];
     wire [4:0]  me_wreg       = ex_me_bundle[9:5];
     wire        me_wre        = ex_me_bundle[4];
@@ -262,6 +268,28 @@ module pipeline_backup(
     );
 
     assign data_out_dmem = dmem_raw_output;
+
+    // =========================================================
+    // Tensor Intercept Latch
+    // Captures me_result when a tensor instruction with wreg_en
+    // is in the MEM stage. me_result at this point already selects
+    // the correctly-timed tensor lane (ex_me_bundle[137:74]).
+    // tensor_out_valid pulses high for exactly one cycle per result.
+    // =========================================================
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            tensor_out_intercept <= 64'b0;
+            //tensor_out_valid     <= 1'b0;
+        end else begin
+            if (me_is_tensor && me_wre) begin
+                tensor_out_intercept <= me_result;
+                //tensor_out_valid     <= 1'b1;
+            end else begin
+                //tensor_out_valid     <= 1'b0;
+                // retain last value so host can read it after the pulse
+            end
+        end
+    end
 
     // =========================================================
     // MEM/WB1 Bridge (72 bits)
