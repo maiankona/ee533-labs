@@ -270,25 +270,32 @@ module pipeline_backup(
     assign data_out_dmem = dmem_raw_output;
 
     // =========================================================
-    // Tensor Intercept Latch
-    // Captures me_result when a tensor instruction with wreg_en
-    // is in the MEM stage. me_result at this point already selects
-    // the correctly-timed tensor lane (ex_me_bundle[137:74]).
-    // tensor_out_valid pulses high for exactly one cycle per result.
+    // Tensor Intercept — two-stage latch
+    //
+    // Stage 1 (tensor_out_pipe): unconditional register on me_result.
+    //   This gives the Xilinx mapper an always-live flop endpoint so
+    //   it never trims the add_out path inside bf16_tensor.
+    //
+    // Stage 2 (tensor_out_intercept): conditional hold register.
+    //   Only captures tensor_out_pipe when a tensor instruction with
+    //   wreg_en is in the MEM stage. Holds the last valid tensor result
+    //   at all other times so the host can read it after the pulse.
     // =========================================================
+    reg [63:0] tensor_out_pipe;
+
+    // Stage 1: unconditional — keeps mapper path alive
     always @(posedge clk or posedge rst) begin
-        if (rst) begin
+        if (rst) tensor_out_pipe <= 64'b0;
+        else     tensor_out_pipe <= me_result;
+    end
+
+    // Stage 2: conditional hold — only valid tensor results get through
+    always @(posedge clk or posedge rst) begin
+        if (rst)
             tensor_out_intercept <= 64'b0;
-            //tensor_out_valid     <= 1'b0;
-        end else begin
-            if (me_is_tensor && me_wre) begin
-                tensor_out_intercept <= me_result;
-                //tensor_out_valid     <= 1'b1;
-            end else begin
-                //tensor_out_valid     <= 1'b0;
-                // retain last value so host can read it after the pulse
-            end
-        end
+        else if (me_is_tensor && me_wre)
+            tensor_out_intercept <= tensor_out_pipe;
+        // else: retain last valid value for host to read
     end
 
     // =========================================================
