@@ -225,7 +225,7 @@ module pipeline_backup(
         .d_in({
             ex_result,          // [201:138]
             tensor_out,         // [137:74]
-            id_ex_r2,           // [73:10]
+            id_ex_rd,           // [73:10] // The accumulated output of the MAC
             id_ex_wreg,         // [9:5]
             id_ex_wreg_en,      // [4]
             id_ex_wmem_en,      // [3]
@@ -270,7 +270,7 @@ module pipeline_backup(
     assign data_out_dmem = dmem_raw_output;
 
     // =========================================================
-    // Tensor Intercept — two-stage latch
+    // Tensor Intercept ? two-stage latch
     //
     // Stage 1 (tensor_out_pipe): unconditional register on me_result.
     //   This gives the Xilinx mapper an always-live flop endpoint so
@@ -283,13 +283,13 @@ module pipeline_backup(
     // =========================================================
     reg [63:0] tensor_out_pipe;
 
-    // Stage 1: unconditional — keeps mapper path alive
+    // Stage 1: unconditional ? keeps mapper path alive
     always @(posedge clk or posedge rst) begin
         if (rst) tensor_out_pipe <= 64'b0;
         else     tensor_out_pipe <= me_result;
     end
 
-    // Stage 2: conditional hold — only valid tensor results get through
+    // Stage 2: conditional hold ? only valid tensor results get through
     always @(posedge clk or posedge rst) begin
         if (rst)
             tensor_out_intercept <= 64'b0;
