@@ -1,17 +1,4 @@
 ///////////////////////////////////////////////////////////////////////////////
-// vim:set shiftwidth=3 softtabstop=3 expandtab:
-// $Id: module_template 2008-03-13 gac1 $
-//
-// Module: ids.v
-// Project: NF2.1
-// Description: Defines a simple ids module for the user data path.  The
-// modules reads a 64-bit register that contains a pattern to match and
-// counts how many packets match.  The register contents are 7 bytes of
-// pattern and one byte of mask.  The mask bits are set to one for each
-// byte of the pattern that should be included in the mask -- zero bits
-// mean "don't care".
-//
-///////////////////////////////////////////////////////////////////////////////
 `timescale 1ns/1ps
 
 module ids 
@@ -31,7 +18,6 @@ module ids
       output                              out_wr,
       input                               out_rdy,
       
-      // --- Register interface
       input                               reg_req_in,
       input                               reg_ack_in,
       input                               reg_rd_wr_L_in,
@@ -46,103 +32,58 @@ module ids
       output  [`CPCI_NF2_DATA_WIDTH-1:0]  reg_data_out,
       output  [UDP_REG_SRC_WIDTH-1:0]     reg_src_out,
 
-      // misc
-      input                                reset,
-      input                                clk
+      input                               reset,
+      input                               clk
    );
 
-   // Define the log2 function
-   // `LOG2_FUNC
+   //------------------------- Signals -------------------------------
 
-   //------------------------- Signals-------------------------------
-   //NO FIFO FOR THIS IMPLEMENTATION
-   //wire [DATA_WIDTH-1:0]         in_fifo_data;
-   //wire [CTRL_WIDTH-1:0]         in_fifo_ctrl;
+   wire [31:0]  input_type;
+   wire [31:0]  address;
+   wire [31:0]  imem;
+   wire [31:0]  dmem;
 
-   //wire                          in_fifo_nearly_full;
-   //wire                          in_fifo_empty;
+   reg  [31:0]  dmem_out;
+   reg  [63:0]  tensor_out;
 
-   //reg                           in_fifo_rd_en;
-   //reg                           out_wr_int;
+   wire         write_to_imem;
+   wire         write_to_dmem;
+   wire [8:0]   addr_imem_host;
+   wire [31:0]  data_imem_host;
+   wire [7:0]   addr_dmem_host;
+   wire [63:0]  data_dmem_host;
+   wire [63:0]  data_out_dmem;
+   wire         read_req_dmem;
 
-   // software registers 
-   wire [31:0]                     input_type;
-   wire [31:0]                     address;
-   wire [31:0]                     imem;
-   wire [31:0]                     dmem;
+   wire         alu_result_detected;
+   wire [63:0]  alu_out_intercept;
+   wire [63:0]  tensor_out_intercept;
 
+   // CPU MEM stage
+   wire [7:0]   cpu_mem_addr;
+   wire [63:0]  cpu_mem_data;
+   wire         cpu_mem_we;
 
-   
-   //NOT USED
-   //wire [31:0]                   pattern_high;
-   //wire [31:0]                   pattern_low;
-   //wire [31:0]                   ids_cmd;
-   // hardware registers
-   reg [31:0]                      dmem_out;
-   //reg [31:0]                      alu_out_check;
-   reg [63:0]                      tensor_out;
-   
-   wire                            write_to_imem;
-   wire                            write_to_dmem;
-   wire [8:0]                      addr_imem_host;
-   wire [31:0]                     data_imem_host;
-   wire [7:0]                      addr_dmem_host;
-   wire [31:0]                     data_dmem_host;
+   // gpu_control_interface_2 outputs
+   wire         gpu_irq;
+   wire         gpu_start;
+   wire [7:0]   bram_inst_addr;
+   wire [7:0]   bram_length;
+   wire         gpu_imem_we;    // driven entirely by gpuCTRL
 
-	wire                            read_req_dmem;
+   // pipeline_done
+   wire         pipeline_done;
 
-   //wire                            alu_result_detected;
-   wire [31:0]                     data_out_dmem;
-   //wire [31:0]                     alu_out_intercept;
-   wire [63:0]                     tensor_out_intercept;
-	
-	// CPU-GPU communications
-	wire [7:0]  cpu_mem_addr;
-	wire [63:0] cpu_mem_data;
-	wire        cpu_mem_we;
-
-	wire        gpu_dispatch;
-	wire        gpu_imem_we;
-	wire        gpu_ready;
-	wire        gpu_irq;
-	wire        arm_irq_ack;
-	wire        pipeline_done;
-   
-   //NOT USED
-   //reg [31:0]                    matches;
-
-   // internal state NOT USED
-   //reg [1:0]                     state, state_next;
-   //reg [31:0]                    matches_next;
-   //reg                           in_pkt_body, in_pkt_body_next;
-   //reg                           end_of_pkt, end_of_pkt_next;
-   //reg                           begin_pkt, begin_pkt_next;
-   //reg [2:0]                     header_counter, header_counter_next;
-   //reg                           counter;
-
-   // local parameter NOT USED
-   //parameter                     START = 2'b00;
-   //parameter                     HEADER = 2'b01;
-   //parameter                     PAYLOAD = 2'b10;
-
- 
-   //------------------------- Local assignments -------------------------------
-   //NOT USED
-   //assign in_rdy     = !in_fifo_nearly_full;
-   //assign matcher_en = in_pkt_body;
-   //assign matcher_ce = (!in_fifo_empty && out_rdy);
-   //assign matcher_reset = (reset || ids_cmd[0] || end_of_pkt);
-
-   //------------------------- Modules-------------------------------
+   //------------------------- Modules -------------------------------
 
    generic_regs
    #( 
-      .UDP_REG_SRC_WIDTH   (UDP_REG_SRC_WIDTH),
-      .TAG                 (`IDS_BLOCK_ADDR),          // Tag -- eg. MODULE_TAG
-      .REG_ADDR_WIDTH      (`IDS_REG_ADDR_WIDTH),     // Width of block addresses -- eg. MODULE_REG_ADDR_WIDTH
-      .NUM_COUNTERS        (0),                 // Number of counters
-      .NUM_SOFTWARE_REGS   (4),                 // Number of sw regs
-      .NUM_HARDWARE_REGS   (2)                  // Number of hw regs
+      .UDP_REG_SRC_WIDTH (UDP_REG_SRC_WIDTH),
+      .TAG               (`IDS_BLOCK_ADDR),
+      .REG_ADDR_WIDTH    (`IDS_REG_ADDR_WIDTH),
+      .NUM_COUNTERS      (0),
+      .NUM_SOFTWARE_REGS (4),
+      .NUM_HARDWARE_REGS (2)
    ) module_regs (
       .reg_req_in       (reg_req_in),
       .reg_ack_in       (reg_ack_in),
@@ -150,119 +91,102 @@ module ids
       .reg_addr_in      (reg_addr_in),
       .reg_data_in      (reg_data_in),
       .reg_src_in       (reg_src_in),
-
       .reg_req_out      (reg_req_out),
       .reg_ack_out      (reg_ack_out),
       .reg_rd_wr_L_out  (reg_rd_wr_L_out),
       .reg_addr_out     (reg_addr_out),
       .reg_data_out     (reg_data_out),
       .reg_src_out      (reg_src_out),
-
-      // --- counters interface
       .counter_updates  (),
       .counter_decrement(),
-
-      // --- SW regs interface
-      //.software_regs    ({ids_cmd,pattern_low,pattern_high}),
       .software_regs    ({dmem, imem, address, input_type}),
-
-      // --- HW regs interface
-	  .hardware_regs    ({tensor_out[31:0], dmem_out}),
-
+      .hardware_regs    ({tensor_out[31:0], dmem_out}),
       .clk              (clk),
       .reset            (reset)
-    );
-	 
-	    pipeline_cpu cpu_Unit (
-      .clk (clk),
-      .rst (reset),
-
-      //HOST interactions
-      .write_to_imem(write_to_imem),
-      .write_to_dmem(write_to_dmem),
-      .addr_imem_host(addr_imem_host),
-      .data_imem_host(data_imem_host),
-      .addr_dmem_host(addr_dmem_host),
-      .data_dmem_host(data_dmem_host),
-
-      .read_req_dmem(read_req_dmem),
-
-      .alu_result_detected(alu_result_detected),
-      .data_out_dmem(data_out_dmem),
-      .alu_out_intercept(alu_out_intercept),
-		.mem_addr_out(cpu_mem_addr),
-		.mem_data_out(cpu_mem_data),
-		.mem_we_out(cpu_mem_we)
    );
 
-	// Address decoder — sits between CPU MEM stage and GPU
-	assign gpu_dispatch = (cpu_mem_addr == 8'hFF) && cpu_mem_we && gpu_ready;
-	assign gpu_imem_we  = (cpu_mem_addr  < 8'hFF) && cpu_mem_we;  // any write below 0xFF loads GPU IMEM
+   pipeline_cpu cpu_Unit (
+      .clk                 (clk),
+      .rst                 (reset),
+      .write_to_imem       (write_to_imem),
+      .write_to_dmem       (write_to_dmem),
+      .addr_imem_host      (addr_imem_host),
+      .data_imem_host      (data_imem_host),
+      .addr_dmem_host      (addr_dmem_host),
+      .data_dmem_host      (data_dmem_host),
+      .read_req_dmem       (read_req_dmem),
+      .alu_result_detected (alu_result_detected),
+      .data_out_dmem       (data_out_dmem),
+      .alu_out_intercept   (alu_out_intercept),
+      .mem_addr_out        (cpu_mem_addr),
+      .mem_data_out        (cpu_mem_data),
+      .mem_we_out          (cpu_mem_we)
+   );
+
+   // GPU controller ? owns all address decoding for 0xF0?0xF3
+   // and the IMEM write window
+   gpu_control_interface_2 gpuCTRL (
+      .clk           (clk),
+      .rst           (reset),
+      .host_addr     (cpu_mem_addr),
+      .host_data     (cpu_mem_data),
+      .host_we       (cpu_mem_we),
+      .gpu_irq       (gpu_irq),
+      .gpu_start     (gpu_start),
+      .bram_inst_addr(bram_inst_addr),
+      .bram_length   (bram_length),
+      .pipeline_done (pipeline_done),
+      .imem_we_en    (gpu_imem_we)
+   );
 
    pipeline_gpu gpu_Unit (
-      .clk (clk),
-		.clk2x (clk),
-      .rst (reset),
-
-      //HOST interactions
-      .write_to_imem(gpu_imem_we),
-      .write_to_dmem(write_to_dmem),
-      .addr_imem_host(cpu_mem_addr[8:0]),
-      .data_imem_host(cpu_mem_data[31:0]),
-      .addr_dmem_host(addr_dmem_host),
-      .data_dmem_host(data_dmem_host),
-      .read_req_dmem(read_req_dmem),
-		.gpu_dispatch(gpu_dispatch), 
-      .data_out_dmem(data_out_dmem),
+      .clk              (clk),
+      .clk2x            (clk),
+      .rst              (reset),
+      .write_to_imem    (gpu_imem_we),
+      .write_to_dmem    (write_to_dmem),
+      .addr_imem_host   ({1'b0, cpu_mem_addr}),
+      .data_imem_host   (cpu_mem_data[31:0]),
+      .addr_dmem_host   (addr_dmem_host),
+      .data_dmem_host   (data_dmem_host),
+      .read_req_dmem    (read_req_dmem),
+      .gpu_start        (gpu_start),
+      .bram_inst_addr   (bram_inst_addr),
+      .bram_length      (bram_length),
+      .data_out_dmem    (data_out_dmem),
       .tensor_out_intercept(tensor_out_intercept),
-		.pipeline_done(pipeline_done)
+      .pipeline_done    (pipeline_done)
    );
 
-	// CPU-GPU Control interface
-	gpu_control_interface gpuCTRL (
-		 .clk(clk),
-		 .rst(reset),
-		 .arm_instruction(cpu_mem_data[31:0]), // lower 32 bits of CPU store data
-		 .gpu_dispatch(gpu_dispatch),
-		 .gpu_ready(gpu_ready),
-		 .gpu_done(),
-		 .gpu_irq(gpu_irq),
-		 .arm_irq_ack(arm_irq_ack),
-		 .inst_out(),
-		 .inst_out_valid(),
-		 .pipeline_done(pipeline_done)
-	);
+   //------------------------- Datapath tie-offs ---------------------
+   assign in_rdy   = 1'b1;
+   assign out_data = {DATA_WIDTH{1'b0}};
+   assign out_ctrl = {CTRL_WIDTH{1'b0}};
+   assign out_wr   = 1'b0;
 
-   //------------------------- Logic-------------------------------
-   
-   //intended convention: input_type takes in imem, dmem_write, dmem_read
-   wire imem_we = input_type [0];
-   wire dmem_we = input_type [1]; 
-   wire dmem_read_req = input_type [2];
+   //------------------------- Logic ---------------------------------
 
-   //interfacing hw and sw
-   assign write_to_imem = imem_we;
-   assign write_to_dmem = dmem_we;
+   wire imem_we       = input_type[0];
+   wire dmem_we       = input_type[1];
+   wire dmem_read_req = input_type[2];
+
+   assign write_to_imem  = imem_we;
+   assign write_to_dmem  = dmem_we;
    assign addr_imem_host = address[8:0];
    assign data_imem_host = imem;
    assign addr_dmem_host = address[7:0];
-   assign data_dmem_host = dmem;
-
-	assign read_req_dmem = dmem_read_req;
+   assign data_dmem_host = {32'b0, dmem};
+   assign read_req_dmem  = dmem_read_req;
 
    always @(posedge clk) begin
       if (reset) begin
-         dmem_out <= 32'b0;
+         dmem_out   <= 32'b0;
          tensor_out <= 64'b0;
+      end else begin
+         if (dmem_read_req)
+            dmem_out <= data_out_dmem[31:0];
+         tensor_out <= tensor_out_intercept;
       end
-      else begin
-         if (dmem_read_req) begin
-            dmem_out <= data_out_dmem;
-         end
+   end
 
-            tensor_out <= tensor_out_intercept;
-
-      end
-   end // Closes the always block
- 
-endmodule 
+endmodule

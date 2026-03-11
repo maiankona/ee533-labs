@@ -19,9 +19,9 @@ module pipeline_cpu(
     output [63:0] alu_out_intercept,
 	 
 	 // MEM stage outputs for GPU address decoder
-    output [7:0]  mem_addr_out,    // me_alu_res[7:0] — address being written
-    output [63:0] mem_data_out,    // me_store_data — data being written
-    output        mem_we_out       // me_wme — write enable
+    output [7:0]  mem_addr_out,    // me_alu_res[7:0] ? address being written
+    output [63:0] mem_data_out,    // me_store_data ? data being written
+    output        mem_we_out       // me_wme ? write enable
 );
 
     // Feedback Paths
@@ -154,7 +154,7 @@ module pipeline_cpu(
     //wire        ex_alu_of;
     //wire        ex_alu_c;
     
-    alu_64bit ALU (
+    alu_64bitcpu ALU (
         .A(ex_r1data),
         .B(ex_alu_b),
         .Op(ex_alu_ctrl),
