@@ -9,10 +9,10 @@ import re
 import sys
 import os
 
-ARRAY_A_BASE = 0x0001
-ARRAY_B_BASE = 0x0029
-ARRAY_C_BASE = 0x0051
-ARRAY_D_BASE = 0x0079  # For MAC
+ARRAY_A_BASE = 0x90  # GPU Operands region start
+ARRAY_B_BASE = 0x94  # Offset by 4 words
+ARRAY_C_BASE = 0x98  # GPU Results region
+ARRAY_D_BASE = 0x9c  # MAC accumulator
 
 # Tracks which memory base (A/B/C/D) each PTX address register corresponds to
 addr_source = {}
