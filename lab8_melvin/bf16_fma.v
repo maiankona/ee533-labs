@@ -130,8 +130,8 @@ always @(posedge clk) begin
         s1_isnan_c      <= isnan_c;
         for (j = 0; j < 4; j = j + 1) begin
             s1_mant_product[j] <= mant_product[j];
-            s1_exp_product[j]   <= exp_product[j];
-            s1_aligned_c[j]     <= aligned_c[j];
+            s1_exp_product[j]  <= exp_product[j];
+            s1_aligned_c[j]    <= aligned_c[j];
         end
     end
 end
@@ -198,148 +198,78 @@ always @(posedge clk) begin
         s2_isnan_b  <= s1_isnan_b;
         s2_isnan_c  <= s1_isnan_c;
         for (j = 0; j < 4; j = j + 1) begin
-            s2_result[j]     <= mag_result[j];
-            s2_exp[j]        <= s1_exp_product[j];
-            s2_result_zero[j] <= (mag_result[j] == 28'h0);
+            s2_result[j]      <= mag_result[j];
+            s2_exp[j]         <= s1_exp_product[j];
+            s2_result_zero[j]  <= (mag_result[j] == 28'h0);
         end
     end
 end
 
 // -------------------------------------------------------
-// STAGE 3 - normalize
+// STAGE 3 - normalize + round + pack
 // -------------------------------------------------------
-wire [4:0]  lza_count [0:3];
-wire [27:0] norm_mant [0:3];
-wire [7:0]  norm_exp  [0:3];
+wire [15:0] packed [0:3];
 
 generate
-    for (k = 0; k < 4; k = k + 1) begin : normalize_lane
+    for (k = 0; k < 4; k = k + 1) begin : final_lane
         wire [27:0] r = s2_result[k];
-        assign lza_count[k] = r[27] ? 5'd0  :
-                               r[26] ? 5'd1  :
-                               r[25] ? 5'd2  :
-                               r[24] ? 5'd3  :
-                               r[23] ? 5'd4  :
-                               r[22] ? 5'd5  :
-                               r[21] ? 5'd6  :
-                               r[20] ? 5'd7  :
-                               r[19] ? 5'd8  :
-                               r[18] ? 5'd9  :
-                               r[17] ? 5'd10 :
-                               r[16] ? 5'd11 :
-                               r[15] ? 5'd12 :
-                               r[14] ? 5'd13 :
-                               r[13] ? 5'd14 :
-                               r[12] ? 5'd15 :
-                               r[11] ? 5'd16 :
-                               r[10] ? 5'd17 :
-                               r[9]  ? 5'd18 :
-                               r[8]  ? 5'd19 :
-                               r[7]  ? 5'd20 :
-                               r[6]  ? 5'd21 :
-                               r[5]  ? 5'd22 :
-                               r[4]  ? 5'd23 :
-                               r[3]  ? 5'd24 :
-                               r[2]  ? 5'd25 :
-                               r[1]  ? 5'd26 :
-                                        5'd27;
 
-        // shift left so implicit-1 lands at bit 27
-        assign norm_mant[k] = s2_result[k] << lza_count[k];
+        wire [4:0] lza_count =
+            r[27] ? 5'd0  :
+            r[26] ? 5'd1  :
+            r[25] ? 5'd2  :
+            r[24] ? 5'd3  :
+            r[23] ? 5'd4  :
+            r[22] ? 5'd5  :
+            r[21] ? 5'd6  :
+            r[20] ? 5'd7  :
+            r[19] ? 5'd8  :
+            r[18] ? 5'd9  :
+            r[17] ? 5'd10 :
+            r[16] ? 5'd11 :
+            r[15] ? 5'd12 :
+            r[14] ? 5'd13 :
+            r[13] ? 5'd14 :
+            r[12] ? 5'd15 :
+            r[11] ? 5'd16 :
+            r[10] ? 5'd17 :
+            r[9]  ? 5'd18 :
+            r[8]  ? 5'd19 :
+            r[7]  ? 5'd20 :
+            r[6]  ? 5'd21 :
+            r[5]  ? 5'd22 :
+            r[4]  ? 5'd23 :
+            r[3]  ? 5'd24 :
+            r[2]  ? 5'd25 :
+            r[1]  ? 5'd26 :
+                     5'd27;
 
-        // keep your existing exponent correction
-        assign norm_exp[k] = s2_exp[k] - {3'b0, lza_count[k]} + 8'd13;
-    end
-endgenerate
+        wire [27:0] norm_mant = r << lza_count;
+        wire [7:0]  norm_exp  = s2_exp[k] - {3'b0, lza_count} + 8'd13;
 
-// stage 3 registers
-reg [27:0] s3_mant [0:3];
-reg [7:0]  s3_exp  [0:3];
-reg [3:0]  s3_sign;
-reg [3:0]  s3_sticky;
-reg [3:0]  s3_result_zero;
-reg [3:0]  s3_iszero_a, s3_iszero_b, s3_iszero_c;
-reg [3:0]  s3_isinf_a,  s3_isinf_b,  s3_isinf_c;
-reg [3:0]  s3_isnan_a,  s3_isnan_b,  s3_isnan_c;
+        wire guard      = norm_mant[19];
+        wire round_bit  = norm_mant[18];
+        wire sticky_in  = s2_sticky[k] | (|norm_mant[17:0]);
+        wire lsb        = norm_mant[20];
 
-always @(posedge clk) begin
-    if (rst) begin
-        s3_sign        <= 4'h0;
-        s3_sticky      <= 4'h0;
-        s3_result_zero <= 4'h0;
-        s3_iszero_a    <= 4'hF;
-        s3_iszero_b    <= 4'hF;
-        s3_iszero_c    <= 4'hF;
-        s3_isinf_a     <= 4'h0;
-        s3_isinf_b     <= 4'h0;
-        s3_isinf_c     <= 4'h0;
-        s3_isnan_a     <= 4'h0;
-        s3_isnan_b     <= 4'h0;
-        s3_isnan_c     <= 4'h0;
-        for (j = 0; j < 4; j = j + 1) begin
-            s3_mant[j] <= 28'h0;
-            s3_exp[j]   <= 8'h0;
-        end
-    end else begin
-        s3_sign        <= s2_sign;
-        s3_sticky      <= s2_sticky;
-        s3_result_zero <= s2_result_zero;
-        s3_iszero_a    <= s2_iszero_a;
-        s3_iszero_b    <= s2_iszero_b;
-        s3_iszero_c    <= s2_iszero_c;
-        s3_isinf_a     <= s2_isinf_a;
-        s3_isinf_b     <= s2_isinf_b;
-        s3_isinf_c     <= s2_isinf_c;
-        s3_isnan_a     <= s2_isnan_a;
-        s3_isnan_b     <= s2_isnan_b;
-        s3_isnan_c     <= s2_isnan_c;
-        for (j = 0; j < 4; j = j + 1) begin
-            s3_mant[j] <= norm_mant[j];
-            s3_exp[j]   <= norm_exp[j];
-        end
-    end
-end
+        wire round_up   = guard & (round_bit | sticky_in | lsb);
 
-// -------------------------------------------------------
-// STAGE 4 - round + pack
-// -------------------------------------------------------
-wire [6:0]  rounded_mant [0:3];
-wire [7:0]  rounded_exp  [0:3];
-wire [15:0] packed       [0:3];
+        wire [7:0] mant_rounded = {1'b0, norm_mant[26:20]} + {7'b0, round_up};
+        wire overflow   = mant_rounded[7];
 
-generate
-    for (k = 0; k < 4; k = k + 1) begin : round_lane
-        // implicit-1 at bit 27
-        // 7-bit mantissa at bits [26:20]
-        // guard at bit 19, round at bit 18
-        wire guard     = s3_mant[k][19];
-        wire round_bit = s3_mant[k][18];
-        wire sticky_in = s3_sticky[k] | (|s3_mant[k][17:0]);
-        wire lsb       = s3_mant[k][20];
+        wire [6:0] rounded_mant = mant_rounded[6:0];
+        wire [7:0] rounded_exp   = norm_exp + {7'b0, overflow};
 
-        // round to nearest even
-        wire round_up = guard & (round_bit | sticky_in | lsb);
-
-        // add round_up to 7-bit mantissa, use 8 bits to catch overflow
-        wire [7:0] mant_rounded = {1'b0, s3_mant[k][26:20]} + {7'b0, round_up};
-
-        // overflow: carry into implicit-1 position
-        wire overflow = mant_rounded[7];
-
-        assign rounded_mant[k] = mant_rounded[6:0];
-        assign rounded_exp[k]   = s3_exp[k] + {7'b0, overflow};
-
-        // special case mux
-        wire out_nan  = s3_isnan_a[k] | s3_isnan_b[k] | s3_isnan_c[k] |
-                        (s3_isinf_a[k] & s3_isinf_b[k] & (s3_isnan_a[k] ^ s3_isnan_b[k]));
-        wire out_inf  = (s3_isinf_a[k] | s3_isinf_b[k]) & ~out_nan;
-        wire out_zero = ((s3_iszero_a[k] | s3_iszero_b[k]) & s3_iszero_c[k] |
-                          s3_result_zero[k]) & ~out_inf & ~out_nan;
+        wire out_nan  = s2_isnan_a[k] | s2_isnan_b[k] | s2_isnan_c[k] |
+                        (s2_isinf_a[k] & s2_isinf_b[k] & (s2_isnan_a[k] ^ s2_isnan_b[k]));
+        wire out_inf  = (s2_isinf_a[k] | s2_isinf_b[k]) & ~out_nan;
+        wire out_zero = ((s2_iszero_a[k] | s2_iszero_b[k]) & s2_iszero_c[k] |
+                         s2_result_zero[k]) & ~out_inf & ~out_nan;
 
         assign packed[k] = out_nan  ? 16'h7FC0 :
-                           out_inf  ? {s3_sign[k], 15'h7F80} :
+                           out_inf  ? {s2_sign[k], 15'h7F80} :
                            out_zero ? 16'h0000 :
-                                      {s3_sign[k], rounded_exp[k], rounded_mant[k]};
+                                      {s2_sign[k], rounded_exp, rounded_mant};
     end
 endgenerate
 
