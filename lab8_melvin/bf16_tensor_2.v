@@ -1,102 +1,114 @@
 module bf16_tensor_2 (
     input  wire        clk,
     input  wire        rst,
+
+    input  wire        cmd_valid,
+    output wire        cmd_ready,
+
     input  wire [5:0]  opcode,
     input  wire [63:0] r1data,
     input  wire [63:0] r2data,
     input  wire [63:0] rd_data,
+
     output wire [63:0] tensor_out,
     output wire        tensor_done
 );
 
-// --- opcodes ---
-wire is_vadd  = (opcode == 6'h06);
-wire is_vsub  = (opcode == 6'h07);
-wire is_vmul  = (opcode == 6'h08);
-wire is_vmac  = (opcode == 6'h09);
-wire is_vrelu = (opcode == 6'h0A);
-wire is_active = is_vadd | is_vsub | is_vmul | is_vmac | is_vrelu;
+    // -------------------------------------------------------
+    // Command latch / issue control
+    // -------------------------------------------------------
+    reg [5:0]  opcode_q;
+    reg [63:0] r1_q, r2_q, rd_q;
 
-// --- fma opcode mapping ---
-localparam FMA  = 2'b00;
-localparam VMUL = 2'b01;
-localparam VADD = 2'b10;
+    reg [3:0] valid_pipe;
 
-reg [1:0] fma_opcode;
-always @(*) begin
-    case (1'b1)
-        is_vmac:            fma_opcode = FMA;
-        is_vmul:            fma_opcode = VMUL;
-        is_vadd | is_vsub:  fma_opcode = VADD;
-        default:            fma_opcode = VMUL; // NOP ? VMUL with zero operands
-    endcase
-end
+    assign cmd_ready = ~(|valid_pipe);
+    wire cmd_fire = cmd_valid & cmd_ready;
 
-// --- vsub: flip sign of B by inverting bit 15 of each lane ---
-wire [63:0] r2_for_fma = is_vsub ?
-    {r2data[63] ^ 1'b1, r2data[62:48],
-     r2data[47] ^ 1'b1, r2data[46:32],
-     r2data[31] ^ 1'b1, r2data[30:16],
-     r2data[15] ^ 1'b1, r2data[14:0]}
-    : r2data;
+    always @(posedge clk) begin
+        if (rst) begin
+            opcode_q   <= 6'h00;
+            r1_q       <= 64'h0;
+            r2_q       <= 64'h0;
+            rd_q       <= 64'h0;
+            valid_pipe <= 4'h0;
+        end else begin
+            if (cmd_fire) begin
+                opcode_q <= opcode;
+                r1_q     <= r1data;
+                r2_q     <= r2data;
+                rd_q     <= rd_data;
+            end
 
-// --- fma operand routing ---
-// VADD:  fma sees A=r1, B=r2 (or r2_negated for vsub), C=don't care (forced internally)
-// VMUL:  fma sees A=r1, B=r2, C=0 (forced internally)
-// VMAC:  fma sees A=r1, B=r2, C=rd (accumulator)
-// NOP:   zero operands, result ignored
-wire [63:0] fma_a = is_active ? r1data  : 64'h0;
-wire [63:0] fma_b = is_active ? r2_for_fma : 64'h0;
-wire [63:0] fma_c = is_vmac   ? rd_data : 64'h0;
+            valid_pipe <= {valid_pipe[2:0], cmd_fire};
+        end
+    end
 
-// --- fma instance ---
-wire [63:0] fma_result;
-wire        fma_valid;
+    assign tensor_done = valid_pipe[3];
 
-bf16_fma fma_unit (
-    .clk       (clk),
-    .rst       (rst),
-    .operand_a (fma_a),
-    .operand_b (fma_b),
-    .operand_c (fma_c),
-    .opcode    (fma_opcode),
-    .result    (fma_result),
-    .valid     (fma_valid)
-);
+    // -------------------------------------------------------
+    // Opcode decode from latched command
+    // -------------------------------------------------------
+    wire is_vadd  = (opcode_q == 6'h06);
+    wire is_vsub  = (opcode_q == 6'h07);
+    wire is_vmul  = (opcode_q == 6'h08);
+    wire is_vmac  = (opcode_q == 6'h09);
+    wire is_vrelu = (opcode_q == 6'h0A);
+    wire is_active = is_vadd | is_vsub | is_vmul | is_vmac | is_vrelu;
 
-// --- vrelu: applied after fma result, combinational ---
-// relu is pass-through if positive, zero if negative (check sign bit of each lane)
-wire [63:0] relu_result = {
-    fma_result[63] ? 16'h0000 : fma_result[63:48],
-    fma_result[47] ? 16'h0000 : fma_result[47:32],
-    fma_result[31] ? 16'h0000 : fma_result[31:16],
-    fma_result[15] ? 16'h0000 : fma_result[15:0]
-};
+    // subtraction control into bf16_fma
+    wire sub_c = is_vsub;
 
-// --- tensor_done: 4-cycle shift register tracking is_active ---
-// fires one cycle after fma_valid for the corresponding instruction
-reg [3:0] active_pipe;
-always @(posedge clk) begin
-    if (rst)
-        active_pipe <= 4'h0;
-    else
-        active_pipe <= {active_pipe[2:0], is_active & ~is_vrelu};
-end
+    // -------------------------------------------------------
+    // FMA operand routing
+    // -------------------------------------------------------
+    // VADD:  1.0 * r1 + r2
+    // VSUB:  1.0 * r1 - r2   (handled inside bf16_fma via sub_c)
+    // VMUL:  r1 * r2 + 0
+    // VMAC:  r1 * r2 + rd
+    // VRELU: bypass FMA entirely
+    wire [63:0] fma_a = (is_vadd | is_vsub) ? 64'h3F803F803F803F80 :
+                        (is_vmul | is_vmac) ? r1_q :
+                        64'h0;
 
-// vrelu is combinational ? done in 0 extra cycles after fma
-// but fma still takes 4 cycles, so vrelu done follows same pipe
-reg [3:0] vrelu_pipe;
-always @(posedge clk) begin
-    if (rst)
-        vrelu_pipe <= 4'h0;
-    else
-        vrelu_pipe <= {vrelu_pipe[2:0], is_vrelu};
-end
+    wire [63:0] fma_b = (is_vadd | is_vsub) ? r1_q :
+                        (is_vmul | is_vmac) ? r2_q :
+                        64'h0;
 
-assign tensor_done = active_pipe[3] | vrelu_pipe[3];
+    wire [63:0] fma_c = is_vmac ? rd_q :
+                        (is_vadd | is_vsub) ? r2_q :
+                        64'h0;
 
-// --- output mux ---
-// select relu output if vrelu instruction just completed
-assign tensor_out = vrelu_pipe[3] ? relu_result : fma_result;
+    // -------------------------------------------------------
+    // FMA instance
+    // -------------------------------------------------------
+    wire [63:0] fma_result;
+    wire        fma_valid;
+
+    bf16_fma fma_unit (
+        .clk       (clk),
+        .rst       (rst),
+        .sub_c     (sub_c),
+        .operand_a (fma_a),
+        .operand_b (fma_b),
+        .operand_c (fma_c),
+        .result    (fma_result),
+        .valid     (fma_valid)
+    );
+
+    // -------------------------------------------------------
+    // True VRELU: clamp r1_q directly, bypassing FMA
+    // -------------------------------------------------------
+    wire [63:0] relu_result = {
+        r1_q[63] ? 16'h0000 : r1_q[63:48],
+        r1_q[47] ? 16'h0000 : r1_q[47:32],
+        r1_q[31] ? 16'h0000 : r1_q[31:16],
+        r1_q[15] ? 16'h0000 : r1_q[15:0]
+    };
+
+    // -------------------------------------------------------
+    // Output select
+    // -------------------------------------------------------
+    assign tensor_out = is_vrelu ? relu_result : fma_result;
 
 endmodule

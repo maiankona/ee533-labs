@@ -1,61 +1,47 @@
 module bf16_fma (
     input  wire        clk,
     input  wire        rst,
-    input  wire [63:0] operand_a,    // 4 lanes BF16
+    input  wire        sub_c,
+    input  wire [63:0] operand_a,
     input  wire [63:0] operand_b,
     input  wire [63:0] operand_c,
-    input  wire [1:0]  opcode,       // 00=FMA, 01=VMUL, 10=VADD
     output reg  [63:0] result,
     output reg         valid
 );
 
-// --- opcodes ---
-localparam FMA  = 2'b00;
-localparam VMUL = 2'b01;
-localparam VADD = 2'b10;
-
-// --- input steering ---
-wire [63:0] op_a, op_b, op_c;
-assign op_a = (opcode == VADD) ? 64'h3F80_3F80_3F80_3F80 : operand_a;
-assign op_b = (opcode == VADD) ? operand_a                : operand_b;
-assign op_c = (opcode == VMUL) ? 64'h0000_0000_0000_0000 : operand_c;
-
 // -------------------------------------------------------
-// STAGE 1 ? unpack + multiply + align
+// unpack
 // -------------------------------------------------------
-
-// unpack all three operands
-wire [3:0]  sign_a, sign_b, sign_c;
-wire [31:0] exp_a,  exp_b,  exp_c;
-wire [31:0] mant_a, mant_b, mant_c;
+wire [3:0]  sign_a,   sign_b,   sign_c;
+wire [31:0] exp_a,    exp_b,    exp_c;
+wire [31:0] mant_a,   mant_b,   mant_c;
 wire [3:0]  iszero_a, iszero_b, iszero_c;
 wire [3:0]  isinf_a,  isinf_b,  isinf_c;
 wire [3:0]  isnan_a,  isnan_b,  isnan_c;
 
-bf16_unpack unpack_a (.operand(op_a), .sign(sign_a), .exponent(exp_a), .mantissa(mant_a), .is_zero(iszero_a), .is_inf(isinf_a), .is_nan(isnan_a));
-bf16_unpack unpack_b (.operand(op_b), .sign(sign_b), .exponent(exp_b), .mantissa(mant_b), .is_zero(iszero_b), .is_inf(isinf_b), .is_nan(isnan_b));
-bf16_unpack unpack_c (.operand(op_c), .sign(sign_c), .exponent(exp_c), .mantissa(mant_c), .is_zero(iszero_c), .is_inf(isinf_c), .is_nan(isnan_c));
+bf16_unpack unpack_a (.operand(operand_a), .sign(sign_a), .exponent(exp_a), .mantissa(mant_a), .is_zero(iszero_a), .is_inf(isinf_a), .is_nan(isnan_a));
+bf16_unpack unpack_b (.operand(operand_b), .sign(sign_b), .exponent(exp_b), .mantissa(mant_b), .is_zero(iszero_b), .is_inf(isinf_b), .is_nan(isnan_b));
+bf16_unpack unpack_c (.operand(operand_c), .sign(sign_c), .exponent(exp_c), .mantissa(mant_c), .is_zero(iszero_c), .is_inf(isinf_c), .is_nan(isnan_c));
 
-// DSP48 multipliers ? one per lane
+// -------------------------------------------------------
+// STAGE 1 - multiply + align C
+// -------------------------------------------------------
 wire [15:0] mant_product [0:3];
 wire [35:0] dsp_out      [0:3];
 
 genvar k;
 generate
     for (k = 0; k < 4; k = k + 1) begin : dsp_lane
-        MULT18X18S dsp48 (
-            .P  (dsp_out[k]),
-            .A  ({10'b0, mant_a[k*8 +: 8]}),
-            .B  ({10'b0, mant_b[k*8 +: 8]}),
-            .C  (clk),
-            .CE (1'b1),
-            .R  (rst)
+        MULT18X18 dsp48 (
+            .P (dsp_out[k]),
+            .A ({10'b0, mant_a[k*8 +: 8]}),
+            .B ({10'b0, mant_b[k*8 +: 8]})
         );
         assign mant_product[k] = dsp_out[k][15:0];
     end
 endgenerate
 
-// exponent sum per lane (combinational, registered at stage 1 boundary)
+// exponent of product: exp_a + exp_b - bias
 wire [7:0] exp_product [0:3];
 generate
     for (k = 0; k < 4; k = k + 1) begin : exp_sum
@@ -63,7 +49,7 @@ generate
     end
 endgenerate
 
-// product sign per lane
+// product sign
 wire [3:0] sign_product;
 generate
     for (k = 0; k < 4; k = k + 1) begin : sign_mul
@@ -71,35 +57,34 @@ generate
     end
 endgenerate
 
-// align operand C to product binary point
-wire signed [8:0] shift_amt [0:3];  // signed shift amount
-wire [27:0] aligned_c  [0:3];       // 28-bit aligned C
-wire [3:0]  invert_c;               // subtraction flag
-wire [3:0]  sticky;                 // sticky bits
+// align C to product binary point
+wire signed [8:0] shift_amt [0:3];
+wire [27:0] aligned_c [0:3];
+wire [3:0]  invert_c;
+wire [3:0]  sticky;
 
 generate
     for (k = 0; k < 4; k = k + 1) begin : align_lane
         assign shift_amt[k] = {1'b0, exp_product[k]} - {1'b0, exp_c[k*8 +: 8]};
 
-        // C mantissa extended to 28 bits, placed at correct position
-        wire [27:0] c_extended = {mant_c[k*8 +: 8], 20'h00000};
+        // place mant_c implicit-1 (bit 7) at bit 14 of the 28-bit accumulator
+        wire [27:0] c_extended = {13'b0, mant_c[k*8 +: 8], 7'b0};
 
-        assign aligned_c[k] = (iszero_c[k])          ? 28'h0 :
-                               (shift_amt[k] >= 28)   ? 28'h0 :
-                               (shift_amt[k] >= 0)    ? c_extended >> shift_amt[k] :
-                                                        c_extended << (-shift_amt[k]);
+        assign aligned_c[k] = (iszero_c[k])        ? 28'h0 :
+                               (shift_amt[k] >= 28) ? 28'h0 :
+                               (shift_amt[k] >= 0)  ? c_extended >> shift_amt[k] :
+                                                       c_extended << (-shift_amt[k]);
 
-        assign sticky[k]   = (shift_amt[k] > 0 && shift_amt[k] < 28) ?
-                              |(mant_c[k*8 +: 8] << (8 - shift_amt[k])) : 1'b0;
+        // sticky: bits shifted below bit 0 of accumulator
+        assign sticky[k] = (shift_amt[k] > 0 && shift_amt[k] < 28) ?
+                           |(c_extended << (28 - shift_amt[k])) : 1'b0;
 
-        assign invert_c[k] = sign_product[k] ^ sign_c[k];
+        // subtraction control folded in here
+        assign invert_c[k] = sign_product[k] ^ sign_c[k] ^ sub_c;
     end
 endgenerate
 
-// --- stage 1 pipeline registers ---
-// DSP48 internal register IS the stage 1 reg for mant_product
-// we register everything else here to match
-
+// stage 1 registers
 reg [15:0] s1_mant_product [0:3];
 reg [7:0]  s1_exp_product  [0:3];
 reg [3:0]  s1_sign_product;
@@ -127,8 +112,8 @@ always @(posedge clk) begin
         s1_isnan_c      <= 4'h0;
         for (j = 0; j < 4; j = j + 1) begin
             s1_mant_product[j] <= 16'h0;
-            s1_exp_product[j]  <= 8'h0;
-            s1_aligned_c[j]    <= 28'h0;
+            s1_exp_product[j]   <= 8'h0;
+            s1_aligned_c[j]     <= 28'h0;
         end
     end else begin
         s1_sign_product <= sign_product;
@@ -145,75 +130,57 @@ always @(posedge clk) begin
         s1_isnan_c      <= isnan_c;
         for (j = 0; j < 4; j = j + 1) begin
             s1_mant_product[j] <= mant_product[j];
-            s1_exp_product[j]  <= exp_product[j];
-            s1_aligned_c[j]    <= aligned_c[j];
+            s1_exp_product[j]   <= exp_product[j];
+            s1_aligned_c[j]     <= aligned_c[j];
         end
     end
 end
 
 // -------------------------------------------------------
-// STAGE 2 ? CSA + CPA + complement
+// STAGE 2 - add/sub product + C
 // -------------------------------------------------------
-
-wire [27:0] csa_sum  [0:3];
-wire [27:0] csa_carry[0:3];
-wire [27:0] cpa_result[0:3];
+wire [27:0] mag_result [0:3];
 wire [3:0]  result_sign;
 
 generate
-    for (k = 0; k < 4; k = k + 1) begin : csa_lane
-        // extend product to 28 bits ? binary point at bit 14
-        wire [27:0] prod_ext = {12'b0, s1_mant_product[k]};
+    for (k = 0; k < 4; k = k + 1) begin : addsub_lane
+        wire [27:0] prod_ext  = {12'b0, s1_mant_product[k]};
+        wire        sub_op    = s1_invert_c[k];
+        wire        prod_lt_c = (prod_ext < s1_aligned_c[k]);
 
-        // invert C if subtraction
-        wire [27:0] c_in = s1_invert_c[k] ? ~s1_aligned_c[k] : s1_aligned_c[k];
+        assign result_sign[k] = s1_sign_product[k] ^ (sub_op & prod_lt_c);
 
-        // 3:2 CSA ? reduces prod_ext, c_in, invert_c (as +1 for two's complement)
-        assign csa_sum[k]   = prod_ext ^ c_in ^ {27'b0, s1_invert_c[k]};
-        assign csa_carry[k] = ((prod_ext & c_in) |
-                               (prod_ext & {27'b0, s1_invert_c[k]}) |
-                               (c_in & {27'b0, s1_invert_c[k]})) << 1;
-
-        // CPA resolves sum + carry
-        assign cpa_result[k] = csa_sum[k] + csa_carry[k];
-
-        // result is negative if subtraction and carry out lost
-        assign result_sign[k] = s1_sign_product[k] ^
-                                 (s1_invert_c[k] & ~cpa_result[k][27]);
+        assign mag_result[k] = sub_op
+            ? (prod_lt_c ? (s1_aligned_c[k] - prod_ext)
+                         : (prod_ext - s1_aligned_c[k]))
+            : (prod_ext + s1_aligned_c[k]);
     end
 endgenerate
 
-// complement if result negative
-wire [27:0] abs_result[0:3];
-generate
-    for (k = 0; k < 4; k = k + 1) begin : complement_lane
-        assign abs_result[k] = result_sign[k] ? (~cpa_result[k] + 1'b1)
-                                               : cpa_result[k];
-    end
-endgenerate
-
-// --- stage 2 pipeline registers ---
+// stage 2 registers
 reg [27:0] s2_result     [0:3];
 reg [7:0]  s2_exp        [0:3];
 reg [3:0]  s2_sign;
 reg [3:0]  s2_sticky;
+reg [3:0]  s2_result_zero;
 reg [3:0]  s2_iszero_a, s2_iszero_b, s2_iszero_c;
 reg [3:0]  s2_isinf_a,  s2_isinf_b,  s2_isinf_c;
 reg [3:0]  s2_isnan_a,  s2_isnan_b,  s2_isnan_c;
 
 always @(posedge clk) begin
     if (rst) begin
-        s2_sign     <= 4'h0;
-        s2_sticky   <= 4'h0;
-        s2_iszero_a <= 4'hF;
-        s2_iszero_b <= 4'hF;
-        s2_iszero_c <= 4'hF;
-        s2_isinf_a  <= 4'h0;
-        s2_isinf_b  <= 4'h0;
-        s2_isinf_c  <= 4'h0;
-        s2_isnan_a  <= 4'h0;
-        s2_isnan_b  <= 4'h0;
-        s2_isnan_c  <= 4'h0;
+        s2_sign        <= 4'h0;
+        s2_sticky      <= 4'h0;
+        s2_result_zero <= 4'h0;
+        s2_iszero_a    <= 4'hF;
+        s2_iszero_b    <= 4'hF;
+        s2_iszero_c    <= 4'hF;
+        s2_isinf_a     <= 4'h0;
+        s2_isinf_b     <= 4'h0;
+        s2_isinf_c     <= 4'h0;
+        s2_isnan_a     <= 4'h0;
+        s2_isnan_b     <= 4'h0;
+        s2_isnan_c     <= 4'h0;
         for (j = 0; j < 4; j = j + 1) begin
             s2_result[j] <= 28'h0;
             s2_exp[j]    <= 8'h0;
@@ -231,24 +198,22 @@ always @(posedge clk) begin
         s2_isnan_b  <= s1_isnan_b;
         s2_isnan_c  <= s1_isnan_c;
         for (j = 0; j < 4; j = j + 1) begin
-            s2_result[j] <= abs_result[j];
-            s2_exp[j]    <= s1_exp_product[j];
+            s2_result[j]     <= mag_result[j];
+            s2_exp[j]        <= s1_exp_product[j];
+            s2_result_zero[j] <= (mag_result[j] == 28'h0);
         end
     end
 end
 
 // -------------------------------------------------------
-// STAGE 3 ? LZA + normalize
+// STAGE 3 - normalize
 // -------------------------------------------------------
-
-wire [4:0]  lza_count  [0:3];   // leading zero count (0-27)
-wire [27:0] norm_mant  [0:3];
-wire [7:0]  norm_exp   [0:3];
+wire [4:0]  lza_count [0:3];
+wire [27:0] norm_mant [0:3];
+wire [7:0]  norm_exp  [0:3];
 
 generate
     for (k = 0; k < 4; k = k + 1) begin : normalize_lane
-
-        // LZA ? count leading zeros
         wire [27:0] r = s2_result[k];
         assign lza_count[k] = r[27] ? 5'd0  :
                                r[26] ? 5'd1  :
@@ -279,92 +244,97 @@ generate
                                r[1]  ? 5'd26 :
                                         5'd27;
 
-        // barrel shift left by lza_count to normalize
+        // shift left so implicit-1 lands at bit 27
         assign norm_mant[k] = s2_result[k] << lza_count[k];
 
-        // adjust exponent
-        assign norm_exp[k]  = s2_exp[k] - {3'b0, lza_count[k]};
+        // keep your existing exponent correction
+        assign norm_exp[k] = s2_exp[k] - {3'b0, lza_count[k]} + 8'd13;
     end
 endgenerate
 
-// --- stage 3 pipeline registers ---
+// stage 3 registers
 reg [27:0] s3_mant [0:3];
 reg [7:0]  s3_exp  [0:3];
 reg [3:0]  s3_sign;
 reg [3:0]  s3_sticky;
+reg [3:0]  s3_result_zero;
 reg [3:0]  s3_iszero_a, s3_iszero_b, s3_iszero_c;
 reg [3:0]  s3_isinf_a,  s3_isinf_b,  s3_isinf_c;
 reg [3:0]  s3_isnan_a,  s3_isnan_b,  s3_isnan_c;
 
 always @(posedge clk) begin
     if (rst) begin
-        s3_sign     <= 4'h0;
-        s3_sticky   <= 4'h0;
-        s3_iszero_a <= 4'hF;
-        s3_iszero_b <= 4'hF;
-        s3_iszero_c <= 4'hF;
-        s3_isinf_a  <= 4'h0;
-        s3_isinf_b  <= 4'h0;
-        s3_isinf_c  <= 4'h0;
-        s3_isnan_a  <= 4'h0;
-        s3_isnan_b  <= 4'h0;
-        s3_isnan_c  <= 4'h0;
+        s3_sign        <= 4'h0;
+        s3_sticky      <= 4'h0;
+        s3_result_zero <= 4'h0;
+        s3_iszero_a    <= 4'hF;
+        s3_iszero_b    <= 4'hF;
+        s3_iszero_c    <= 4'hF;
+        s3_isinf_a     <= 4'h0;
+        s3_isinf_b     <= 4'h0;
+        s3_isinf_c     <= 4'h0;
+        s3_isnan_a     <= 4'h0;
+        s3_isnan_b     <= 4'h0;
+        s3_isnan_c     <= 4'h0;
         for (j = 0; j < 4; j = j + 1) begin
             s3_mant[j] <= 28'h0;
-            s3_exp[j]  <= 8'h0;
+            s3_exp[j]   <= 8'h0;
         end
     end else begin
-        s3_sign     <= s2_sign;
-        s3_sticky   <= s2_sticky;
-        s3_iszero_a <= s2_iszero_a;
-        s3_iszero_b <= s2_iszero_b;
-        s3_iszero_c <= s2_iszero_c;
-        s3_isinf_a  <= s2_isinf_a;
-        s3_isinf_b  <= s2_isinf_b;
-        s3_isinf_c  <= s2_isinf_c;
-        s3_isnan_a  <= s2_isnan_a;
-        s3_isnan_b  <= s2_isnan_b;
-        s3_isnan_c  <= s2_isnan_c;
+        s3_sign        <= s2_sign;
+        s3_sticky      <= s2_sticky;
+        s3_result_zero <= s2_result_zero;
+        s3_iszero_a    <= s2_iszero_a;
+        s3_iszero_b    <= s2_iszero_b;
+        s3_iszero_c    <= s2_iszero_c;
+        s3_isinf_a     <= s2_isinf_a;
+        s3_isinf_b     <= s2_isinf_b;
+        s3_isinf_c     <= s2_isinf_c;
+        s3_isnan_a     <= s2_isnan_a;
+        s3_isnan_b     <= s2_isnan_b;
+        s3_isnan_c     <= s2_isnan_c;
         for (j = 0; j < 4; j = j + 1) begin
             s3_mant[j] <= norm_mant[j];
-            s3_exp[j]  <= norm_exp[j];
+            s3_exp[j]   <= norm_exp[j];
         end
     end
 end
 
 // -------------------------------------------------------
-// STAGE 4 ? round + pack output
+// STAGE 4 - round + pack
 // -------------------------------------------------------
-
 wire [6:0]  rounded_mant [0:3];
 wire [7:0]  rounded_exp  [0:3];
 wire [15:0] packed       [0:3];
 
 generate
     for (k = 0; k < 4; k = k + 1) begin : round_lane
-
-        // guard bit = bit 19 (first bit after the 8-bit mantissa window)
-        // round bit = bit 18
-        wire guard  = s3_mant[k][19];
-        wire round  = s3_mant[k][18];
+        // implicit-1 at bit 27
+        // 7-bit mantissa at bits [26:20]
+        // guard at bit 19, round at bit 18
+        wire guard     = s3_mant[k][19];
+        wire round_bit = s3_mant[k][18];
         wire sticky_in = s3_sticky[k] | (|s3_mant[k][17:0]);
+        wire lsb       = s3_mant[k][20];
 
         // round to nearest even
-        wire round_up = guard & (round | sticky_in | s3_mant[k][20]);
+        wire round_up = guard & (round_bit | sticky_in | lsb);
 
-        wire [7:0] mant_rounded = s3_mant[k][26:19] + {7'b0, round_up};
+        // add round_up to 7-bit mantissa, use 8 bits to catch overflow
+        wire [7:0] mant_rounded = {1'b0, s3_mant[k][26:20]} + {7'b0, round_up};
 
-        // post-normalize: if rounding caused overflow (mant == 8'h00 after +1 wrap)
-        wire overflow = round_up & (s3_mant[k][26:19] == 8'hFF);
+        // overflow: carry into implicit-1 position
+        wire overflow = mant_rounded[7];
 
         assign rounded_mant[k] = mant_rounded[6:0];
-        assign rounded_exp[k]  = s3_exp[k] + {7'b0, overflow};
+        assign rounded_exp[k]   = s3_exp[k] + {7'b0, overflow};
 
-        // special case output mux
-        wire out_nan  = s3_isnan_a[k]  | s3_isnan_b[k]  | s3_isnan_c[k]  |
+        // special case mux
+        wire out_nan  = s3_isnan_a[k] | s3_isnan_b[k] | s3_isnan_c[k] |
                         (s3_isinf_a[k] & s3_isinf_b[k] & (s3_isnan_a[k] ^ s3_isnan_b[k]));
         wire out_inf  = (s3_isinf_a[k] | s3_isinf_b[k]) & ~out_nan;
-        wire out_zero = (s3_iszero_a[k] | s3_iszero_b[k]) & s3_iszero_c[k] & ~out_inf & ~out_nan;
+        wire out_zero = ((s3_iszero_a[k] | s3_iszero_b[k]) & s3_iszero_c[k] |
+                          s3_result_zero[k]) & ~out_inf & ~out_nan;
 
         assign packed[k] = out_nan  ? 16'h7FC0 :
                            out_inf  ? {s3_sign[k], 15'h7F80} :
@@ -373,7 +343,6 @@ generate
     end
 endgenerate
 
-// --- stage 4 output register ---
 always @(posedge clk) begin
     if (rst) begin
         result <= 64'h0;
