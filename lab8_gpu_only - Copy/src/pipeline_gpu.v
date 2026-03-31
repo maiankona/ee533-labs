@@ -314,16 +314,6 @@ module pipeline_gpu (
     wire        me_mem_to_reg = ex_me_bundle[2];
     wire        me_mem_read   = ex_me_bundle[1];
 
-    // =========================================================
-    // Tensor → DMEM direct path
-    // When tensor_done fires, bypass the scalar store path and
-    // write the tensor result directly to DMEM at the destination
-    // register index as the word address.
-    // =========================================================
-    wire [63:0] dmem_write_data = tensor_done ? tensor_out              : me_store_data;
-    wire        dmem_write_en   = tensor_done ? 1'b1                    : me_wme;
-    wire [31:0] dmem_write_addr = tensor_done ? {27'b0, tensor_wb_addr_r} : me_result;
-
     wire [63:0] dmem_raw_output;
 
     memory ME (
@@ -332,9 +322,9 @@ module pipeline_gpu (
         .read_req_dmem (read_req_dmem),
         .addr_dmem_host(addr_dmem_host),
         .data_dmem_host(data_dmem_host),
-        .pipeline_addr (dmem_write_addr),
-        .pipeline_data (dmem_write_data),
-        .pipeline_we   (dmem_write_en),
+        .pipeline_addr (me_result),
+        .pipeline_data (me_store_data),
+        .pipeline_we   (me_wme),
         .dmem_out      (dmem_raw_output)
     );
 
