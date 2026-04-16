@@ -279,7 +279,7 @@ module tb_ann_neuron;
 
     localparam ARM_MOV_R1_0x00 = 32'hE3A01000;
     // Written to MMIO 0xF1 as GPU bram_length = # of instruction fetches (must match IMEM program size).
-    localparam ARM_MOV_R2_BRAM_LEN = 32'hE3A02037; // #56 (IMEM 0x000..0x037)
+    localparam ARM_MOV_R2_BRAM_LEN = 32'hE3A02038; // #56 (IMEM 0x000..0x037)
     localparam ARM_MOV_R3_0xF0 = 32'hE3A030F0;
     localparam ARM_MOV_R4_0xF1 = 32'hE3A040F1;
     localparam ARM_MOV_R5_0xF2 = 32'hE3A050F2;
@@ -364,11 +364,12 @@ module tb_ann_neuron;
         write_gpu_imem(9'h02F, NOP);
         write_gpu_imem(9'h030, NOP);
         write_gpu_imem(9'h031, NOP);
-        write_gpu_imem(9'h032, ST_R10_8);
-        write_gpu_imem(9'h033, NOP);
+		  write_gpu_imem(9'h032, NOP);
+        write_gpu_imem(9'h033, ST_R10_8);
         write_gpu_imem(9'h034, NOP);
         write_gpu_imem(9'h035, NOP);
-        write_gpu_imem(9'h036, HALT);
+        write_gpu_imem(9'h036, NOP);
+        write_gpu_imem(9'h037, HALT);
         $display("  GPU IMEM loaded (56 words) at time %0t", $time);
 
         // ---------------- GPU DMEM (64b hi+lo) ----------------
