@@ -166,6 +166,12 @@ module user_data_path
      input [`UDP_REG_ADDR_WIDTH-1:0]    reg_addr,
      output [`CPCI_NF2_DATA_WIDTH-1:0]  reg_rd_data,
      input [`CPCI_NF2_DATA_WIDTH-1:0]   reg_wr_data,
+
+     // ARM/CPU control path into ids (must not be tied off)
+     input                              cpu_start,
+     input                              arm_write_to_imem,
+     input  [8:0]                       arm_addr_imem_host,
+     input  [31:0]                      arm_data_imem_host,
    
      // misc
      input                              reset,
@@ -398,10 +404,10 @@ module user_data_path
       // --- Misc
       .clk                               (clk),
       .reset                             (reset),
-      .cpu_start                         (1'b0),
-      .arm_write_to_imem                 (1'b0),
-      .arm_addr_imem_host                (9'b0),
-      .arm_data_imem_host                (32'b0)
+      .cpu_start                         (cpu_start),
+      .arm_write_to_imem                 (arm_write_to_imem),
+      .arm_addr_imem_host                (arm_addr_imem_host),
+      .arm_data_imem_host                (arm_data_imem_host)
    );
    
    output_queues
