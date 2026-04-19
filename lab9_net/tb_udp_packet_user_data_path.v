@@ -3,64 +3,22 @@
 `define CPCI_NF2_DATA_WIDTH 32
 `define IDS_BLOCK_ADDR      19'h00008
 
-// Standalone behavioral generic_regs for simulation.
-// Do not compile this TB together with other TBs that also define generic_regs.
-module generic_regs #(
-    parameter UDP_REG_SRC_WIDTH = 2,
-    parameter TAG               = 0,
-    parameter REG_ADDR_WIDTH    = 4,
-    parameter NUM_COUNTERS      = 0,
-    parameter NUM_SOFTWARE_REGS = 5,
-    parameter NUM_HARDWARE_REGS = 4
-) (
-    input                                          reg_req_in,
-    input                                          reg_ack_in,
-    input                                          reg_rd_wr_L_in,
-    input  [`UDP_REG_ADDR_WIDTH-1:0]               reg_addr_in,
-    input  [`CPCI_NF2_DATA_WIDTH-1:0]              reg_data_in,
-    input  [UDP_REG_SRC_WIDTH-1:0]                 reg_src_in,
-    output                                         reg_req_out,
-    output                                         reg_ack_out,
-    output                                         reg_rd_wr_L_out,
-    output [`UDP_REG_ADDR_WIDTH-1:0]               reg_addr_out,
-    output [`CPCI_NF2_DATA_WIDTH-1:0]              reg_data_out,
-    output [UDP_REG_SRC_WIDTH-1:0]                 reg_src_out,
-    input  [NUM_COUNTERS-1:0]                      counter_updates,
-    input  [NUM_COUNTERS-1:0]                      counter_decrement,
-    output [NUM_SOFTWARE_REGS*32-1:0]              software_regs,
-    input  [NUM_HARDWARE_REGS*32-1:0]              hardware_regs,
-    input                                          clk,
-    input                                          reset
-);
-    assign reg_req_out     = reg_req_in;
-    assign reg_ack_out     = reg_req_in;
-    assign reg_rd_wr_L_out = reg_rd_wr_L_in;
-    assign reg_addr_out    = reg_addr_in;
-    assign reg_data_out    = reg_data_in;
-    assign reg_src_out     = reg_src_in;
-
-    reg [31:0] r_dmem_hi, r_dmem_lo, r_imem, r_address, r_input_type;
-    assign software_regs = {r_dmem_hi, r_dmem_lo, r_imem, r_address, r_input_type};
-
-    always @(posedge clk) begin
-        if (reset) begin
-            r_dmem_hi    <= 32'h0;
-            r_dmem_lo    <= 32'h0;
-            r_imem       <= 32'h0;
-            r_address    <= 32'h0;
-            r_input_type <= 32'h0;
-        end else if (reg_req_in && !reg_rd_wr_L_in && reg_addr_in[22:4] == TAG) begin
-            case (reg_addr_in[3:0])
-                4'h0: r_dmem_hi    <= reg_data_in;
-                4'h1: r_dmem_lo    <= reg_data_in;
-                4'h2: r_imem       <= reg_data_in;
-                4'h3: r_address    <= reg_data_in;
-                4'h4: r_input_type <= reg_data_in;
-                default: ;
-            endcase
-        end
-    end
-endmodule
+// Simulation sources (add to ISE / ISim project alongside this TB):
+//   - generic_regs.v (behavioral SW regs for ids; reg_ack_out = reg_req_in)
+//   - udp_reg_master.v    (ring handshake: reg_ack_out = reg_ack_in, core_reg_ack = reg_req_in & reg_ack_in)
+// If input_type stays 0 in waveform, you are still linking NF2 library generic_regs / udp_reg_master
+// instead of these files — remove or exclude the duplicates.
+//
+// Note: ids.v ARM/CPU control uses top-level pins (cpu_start, arm_write_to_imem, ...).
+// user_data_path passes those through; drive them from TB or platform.
+//
+// Like tb_ann_neuron: this TB only pulses top-level cpu_start. The ARM program must STR
+// 0xF0 / 0xF1 / 0xF2 to dispatch the GPU (gpu_ctrl.gpu_start). Do not pulse input_type[3]
+// from the TB for GPU — that is a different SW edge path.
+//
+// After the packet is injected, wait until convertible_fifo is in PROCESSING (state 2'b10)
+// so RECEIVING has finished and head/tail reflect the captured packet before the ARM runs
+// its FIFO MMIO (LDR tail / lock / STR ctrl).
 
 // ------------------------------------------------------------
 // Minimal behavioral NetFPGA datapath stubs for user_data_path
@@ -172,29 +130,6 @@ module output_queues #(
     assign rd_0_addr = {SRAM_ADDR_WIDTH{1'b0}}; assign rd_0_req = 1'b0;
 endmodule
 
-module udp_reg_master #(
-    parameter UDP_REG_SRC_WIDTH = 2
-) (
-    input core_reg_req, output core_reg_ack, input core_reg_rd_wr_L,
-    input [`UDP_REG_ADDR_WIDTH-1:0] core_reg_addr,
-    output [`CPCI_NF2_DATA_WIDTH-1:0] core_reg_rd_data,
-    input  [`CPCI_NF2_DATA_WIDTH-1:0] core_reg_wr_data,
-    output reg_req_out, output reg_ack_out, output reg_rd_wr_L_out,
-    output [`UDP_REG_ADDR_WIDTH-1:0] reg_addr_out, output [`CPCI_NF2_DATA_WIDTH-1:0] reg_data_out, output [UDP_REG_SRC_WIDTH-1:0] reg_src_out,
-    input reg_req_in, input reg_ack_in, input reg_rd_wr_L_in,
-    input [`UDP_REG_ADDR_WIDTH-1:0] reg_addr_in, input [`CPCI_NF2_DATA_WIDTH-1:0] reg_data_in, input [UDP_REG_SRC_WIDTH-1:0] reg_src_in,
-    input clk, input reset
-);
-    assign reg_req_out = core_reg_req;
-    assign reg_ack_out = core_reg_req;
-    assign reg_rd_wr_L_out = core_reg_rd_wr_L;
-    assign reg_addr_out = core_reg_addr;
-    assign reg_data_out = core_reg_wr_data;
-    assign reg_src_out = {UDP_REG_SRC_WIDTH{1'b0}};
-    assign core_reg_ack = reg_ack_in;
-    assign core_reg_rd_data = reg_data_in;
-endmodule
-
 module tb_udp_packet_user_data_path;
     reg clk, reset;
 
@@ -228,6 +163,10 @@ module tb_udp_packet_user_data_path;
     reg  [`UDP_REG_ADDR_WIDTH-1:0]   reg_addr;
     wire [`CPCI_NF2_DATA_WIDTH-1:0]  reg_rd_data;
     reg  [`CPCI_NF2_DATA_WIDTH-1:0]  reg_wr_data;
+    reg                              cpu_start;
+    reg                              arm_write_to_imem;
+    reg  [8:0]                       arm_addr_imem_host;
+    reg  [31:0]                      arm_data_imem_host;
 
     localparam [22:0] REG_DMEM_HI    = {`IDS_BLOCK_ADDR, 4'h0};
     localparam [22:0] REG_DMEM_LO    = {`IDS_BLOCK_ADDR, 4'h1};
@@ -235,19 +174,25 @@ module tb_udp_packet_user_data_path;
     localparam [22:0] REG_ADDRESS    = {`IDS_BLOCK_ADDR, 4'h3};
     localparam [22:0] REG_INPUT_TYPE = {`IDS_BLOCK_ADDR, 4'h4};
 
-    localparam [31:0] ITYPE_WRITE_IMEM   = 32'h1;   // bit[0]  GPU IMEM
-    localparam [31:0] ITYPE_GPU_START    = 32'h8;   // bit[3]
-    localparam [31:0] ITYPE_CPU_START    = 32'h20;  // bit[5]  ARM cpu_start pulse (ids.v)
-    localparam [31:0] ITYPE_ARM_IMEM_WE  = 32'h40;  // bit[6]  ARM IMEM write (ids.v)
+    localparam [31:0] ITYPE_WRITE_IMEM   = 32'h1;   // bit[0]  GPU IMEM (host preload only)
 
     // ARM ISA (ARM7TDMI-style, matches tb_ann_neuron.v)
+    // gpu_control_interface_2: STR to 0xF0 / 0xF1 / 0xF2 then pipeline sees gpu_start (tb_ann_neuron Phase 3).
+    localparam [31:0] ARM_MOV_R1_0     = 32'hE3A01000; // MOV R1, #0  (cfg base for GPU IMEM)
+    localparam [31:0] ARM_MOV_R2_1     = 32'hE3A02001; // MOV R2, #1  (bram_length: 1 instr = HALT)
+    localparam [31:0] ARM_MOV_R3_F0    = 32'hE3A030F0; // MOV R3, #0xF0
+    localparam [31:0] ARM_MOV_R4_F1    = 32'hE3A040F1; // MOV R4, #0xF1
+    localparam [31:0] ARM_MOV_R5_F2    = 32'hE3A050F2; // MOV R5, #0xF2
+    localparam [31:0] ARM_STR_R1_R3    = 32'hE5831000; // STR R1, [R3]
+    localparam [31:0] ARM_STR_R2_R4    = 32'hE5842000; // STR R2, [R4]
+    localparam [31:0] ARM_STR_R1_R5    = 32'hE5851000; // STR R1, [R5]  -> gpu_dispatch / gpu_start
     // FIFO MMIO (pipeline_psuedoARM): base 0x100 => is_fifo_mapped; +0 head, +4 tail, +8 ctrl
     localparam [31:0] ARM_MOV_R3_0     = 32'hE3A03000; // MOV R3, #0
-    localparam [31:0] ARM_ADD_R3_64  = 32'hE2833040; // ADD R3, R3, #0x40  (�4 => R3=0x100)
+    localparam [31:0] ARM_ADD_R3_64   = 32'hE2833040; // ADD R3, R3, #0x40  (×4 => R3=0x100)
     localparam [31:0] ARM_MOV_R1_1     = 32'hE3A01001; // MOV R1, #1
     localparam [31:0] ARM_NOP          = 32'hE1A00000;
-    localparam [31:0] ARM_LDR_R0_R3_4  = 32'hE5930004; // LDR R0, [R3, #4]  (read tail ? claim lock)
-    localparam [31:0] ARM_STR_R1_R3_8  = 32'hE5831008; // STR R1, [R3, #8]  (fifo ctrl ? start TX)
+    localparam [31:0] ARM_LDR_R0_R3_4  = 32'hE5930004; // LDR R0, [R3, #4]  (read tail → claim lock)
+    localparam [31:0] ARM_STR_R1_R3_8  = 32'hE5831008; // STR R1, [R3, #8]  (fifo ctrl → start TX)
     localparam [31:0] ARM_B_SELF       = 32'hEAFFFFFE; // B .
 
     user_data_path dut (
@@ -271,6 +216,10 @@ module tb_udp_packet_user_data_path;
         .rd_0_ack(rd_0_ack), .rd_0_data(rd_0_data), .rd_0_vld(rd_0_vld), .rd_0_addr(rd_0_addr), .rd_0_req(rd_0_req),
         .reg_req(reg_req), .reg_ack(reg_ack), .reg_rd_wr_L(reg_rd_wr_L), .reg_addr(reg_addr),
         .reg_rd_data(reg_rd_data), .reg_wr_data(reg_wr_data),
+        .cpu_start(cpu_start),
+        .arm_write_to_imem(arm_write_to_imem),
+        .arm_addr_imem_host(arm_addr_imem_host),
+        .arm_data_imem_host(arm_data_imem_host),
         .reset(reset), .clk(clk)
     );
 
@@ -318,23 +267,22 @@ module tb_udp_packet_user_data_path;
         input [8:0]  addr;
         input [31:0] instr;
         begin
-            reg_write(REG_ADDRESS, {23'h0, addr});
-            reg_write(REG_IMEM, instr);
-            pulse_input_type(ITYPE_ARM_IMEM_WE);
+            @(negedge clk);
+            arm_write_to_imem  = 1'b1;
+            arm_addr_imem_host = addr;
+            arm_data_imem_host = instr;
+            @(negedge clk);
+            arm_write_to_imem  = 1'b0;
         end
     endtask
 
     task pulse_cpu_start_udp;
         begin
             $display("[TB] CPU start pulse requested t=%0t", $time);
-            pulse_input_type(ITYPE_CPU_START);
-        end
-    endtask
-
-    task pulse_gpu_start_udp;
-        begin
-            $display("[TB] GPU start pulse requested t=%0t", $time);
-            pulse_input_type(ITYPE_GPU_START);
+            @(negedge clk);
+            cpu_start = 1'b1;
+            @(negedge clk);
+            cpu_start = 1'b0;
         end
     endtask
 
@@ -355,21 +303,23 @@ module tb_udp_packet_user_data_path;
     endtask
 
     always @(posedge clk) begin
+`ifdef TB_UDP_VERBOSE
         if (!reset)
-            $display("[TB][tick] input_type=%h gpu_pulse=%0d cpu_pulse=%0d t=%0t",
-                dut.ids.input_type, dut.ids.gpu_start_sw_pulse, dut.ids.cpu_start_sw_pulse, $time);
+            $display("[TB][tick] input_type=%h gpu_start_sw_pulse=%0d cpu_start=%0d t=%0t",
+                dut.ids.input_type, dut.ids.gpu_start_sw_pulse, cpu_start, $time);
+`endif
+
+        if (!reset && dut.ids_in_reg_req)
+            $display("[TB][reg-ring] ids_in_reg_req=1 rd_wr_L=%0d addr=%h data=%h t=%0t",
+                dut.ids_in_reg_rd_wr_L, dut.ids_in_reg_addr, dut.ids_in_reg_data, $time);
 
         if (!reset && dut.ids.net_rx_valid)
             $display("[TB] RX word into ids: ctrl=%02h data=%016h t=%0t",
                 dut.ids.net_rx_data[71:64], dut.ids.net_rx_data[63:0], $time);
 
-        if (!reset && (dut.ids.input_type[3] || dut.ids.input_type[5] ||
-                       dut.ids.gpu_start_sw_pulse || dut.ids.cpu_start_sw_pulse))
-            $display("[TB] input_type=%h sw_bits(gpu=%0d cpu=%0d) sw_pulses(gpu=%0d cpu=%0d) t=%0t",
-                dut.ids.input_type,
-                dut.ids.input_type[3], dut.ids.input_type[5],
-                dut.ids.gpu_start_sw_pulse, dut.ids.cpu_start_sw_pulse,
-                $time);
+        if (!reset && (dut.ids.gpu_start_sw_pulse || cpu_start))
+            $display("[TB] input_type=%h gpu_start_sw_pulse=%0d cpu_start=%0d t=%0t",
+                dut.ids.input_type, dut.ids.gpu_start_sw_pulse, cpu_start, $time);
 
         if (!reset && (out_wr_0 || out_wr_1 || out_wr_2 || out_wr_3 || out_wr_4 || out_wr_5 || out_wr_6 || out_wr_7))
             $display("[TB] TX word from user_data_path: out_wr=%b%b%b%b%b%b%b%b ctrl0=%02h data0=%016h t=%0t",
@@ -384,44 +334,64 @@ module tb_udp_packet_user_data_path;
         out_rdy_0=1; out_rdy_1=1; out_rdy_2=1; out_rdy_3=1; out_rdy_4=1; out_rdy_5=1; out_rdy_6=1; out_rdy_7=1;
         wr_0_ack=1; rd_0_ack=1; rd_0_data=72'h0; rd_0_vld=1'b0;
         reg_req=0; reg_rd_wr_L=1'b1; reg_addr=0; reg_wr_data=0;
+        cpu_start=0; arm_write_to_imem=0; arm_addr_imem_host=0; arm_data_imem_host=0;
 
         reset = 1'b1;
         repeat (5) @(posedge clk);
         reset = 1'b0;
         $display("\n=== tb_udp_packet_user_data_path: reset released @ %0t ===", $time);
 
-        // Minimal GPU touch: load HALT at IMEM[0], pulse GPU start (tensor path smoke).
-        $display("[TB] Loading minimal GPU program (HALT) and pulsing GPU start...");
+        // GPU IMEM[0] = HALT; ARM program below dispatches GPU via MMIO 0xF0–0xF2 (tb_ann_neuron style).
+        $display("[TB] Loading GPU IMEM (HALT at word 0)...");
         write_gpu_imem(9'h000, 32'h2C000000);
-        reg_write(REG_ADDRESS, 32'h00000100); // length=1, start addr=0 for SW gpu_start mux
-        pulse_gpu_start_udp();
 
-        // ARM: build FIFO base 0x100, LDR tail (+4) to claim lock, STR to ctrl (+8) to transmit.
-        $display("[TB] Loading ARM IMEM via UDP (input_type[6] arm_write_to_imem)...");
-        arm_imem_write_udp(9'h000, ARM_MOV_R3_0);
-        arm_imem_write_udp(9'h001, ARM_ADD_R3_64);
-        arm_imem_write_udp(9'h002, ARM_ADD_R3_64);
-        arm_imem_write_udp(9'h003, ARM_ADD_R3_64);
-        arm_imem_write_udp(9'h004, ARM_ADD_R3_64);
-        arm_imem_write_udp(9'h005, ARM_MOV_R1_1);
-        arm_imem_write_udp(9'h006, ARM_NOP);
-        arm_imem_write_udp(9'h007, ARM_NOP);
-        arm_imem_write_udp(9'h008, ARM_NOP);
-        arm_imem_write_udp(9'h009, ARM_NOP);
-        arm_imem_write_udp(9'h00A, ARM_LDR_R0_R3_4);
-        arm_imem_write_udp(9'h00B, ARM_NOP);
-        arm_imem_write_udp(9'h00C, ARM_STR_R1_R3_8);
-        arm_imem_write_udp(9'h00D, ARM_B_SELF);
+        // ARM IMEM: GPU kick (STR F0/F1/F2) then FIFO MMIO (0x100+) — no separate TB GPU pulse.
+        $display("[TB] Loading ARM IMEM (host arm_write_to_imem)...");
+        arm_imem_write_udp(9'h000, ARM_MOV_R1_0);
+        arm_imem_write_udp(9'h001, ARM_MOV_R2_1);
+        arm_imem_write_udp(9'h002, ARM_MOV_R3_F0);
+        arm_imem_write_udp(9'h003, ARM_MOV_R4_F1);
+        arm_imem_write_udp(9'h004, ARM_MOV_R5_F2);
+        arm_imem_write_udp(9'h005, ARM_STR_R1_R3);
+        arm_imem_write_udp(9'h006, ARM_STR_R2_R4);
+        arm_imem_write_udp(9'h007, ARM_STR_R1_R5);
+        arm_imem_write_udp(9'h008, ARM_MOV_R3_0);
+        arm_imem_write_udp(9'h009, ARM_ADD_R3_64);
+        arm_imem_write_udp(9'h00A, ARM_ADD_R3_64);
+        arm_imem_write_udp(9'h00B, ARM_ADD_R3_64);
+        arm_imem_write_udp(9'h00C, ARM_ADD_R3_64);
+        arm_imem_write_udp(9'h00D, ARM_MOV_R1_1);
+        arm_imem_write_udp(9'h00E, ARM_NOP);
+        arm_imem_write_udp(9'h00F, ARM_NOP);
+        arm_imem_write_udp(9'h010, ARM_NOP);
+        arm_imem_write_udp(9'h011, ARM_NOP);
+        arm_imem_write_udp(9'h012, ARM_LDR_R0_R3_4);
+        arm_imem_write_udp(9'h013, ARM_NOP);
+        arm_imem_write_udp(9'h014, ARM_STR_R1_R3_8);
+        arm_imem_write_udp(9'h015, ARM_B_SELF);
 
-        // One packet: SOP, body, EOP
+        // Packet in (SOP, body, EOP) — convertible_fifo must reach PROCESSING before ARM runs
+        // or PROCESSING branch conditions (fifo_tail / lock) never line up with real packet state.
         $display("[TB] Injecting single packet on in_0...");
         send_word_in0(8'hFF, 64'h1122334455667788);
         send_word_in0(8'h00, 64'hDEADBEEFCAFEBABE);
         send_word_in0(8'h01, 64'hA5A5A5A55A5A5A5A);
 
-        // Let packet land in convertible_fifo FSM (PROCESSING); allow GPU fifo_gpu_mode to drop.
-        repeat (40) @(posedge clk);
-        $display("[TB] Pulsing ARM cpu_start (UDP input_type[5])...");
+        begin: UH
+            integer nf;
+            nf = 0;
+            while (dut.ids.shared_fifo.fifo_inst.state != 2'b10 && nf < 10000) begin
+                @(posedge clk);
+                nf = nf + 1;
+            end
+            if (nf >= 10000)
+                $display("[TB] WARNING: timeout waiting for fifo_inst.state==PROCESSING (2'b10)");
+            else
+                $display("[TB] fifo_inst.state=PROCESSING after %0d cycles; settling...", nf);
+        end
+        repeat (8) @(posedge clk);
+
+        $display("[TB] Pulsing cpu_start (ARM runs GPU MMIO then FIFO path; no TB GPU pulse)...");
         pulse_cpu_start_udp();
 
         repeat (120) @(posedge clk);
