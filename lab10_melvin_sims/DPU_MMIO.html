@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DN-ASIC Shared Address Space Map</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #f8f7f4;
+    color: #1a1a1a;
+    padding: 48px 32px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .header {
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #1a1a1a;
+  }
+
+  .header h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 8px;
+  }
+
+  .header h2 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .section {
+    margin-bottom: 48px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #444;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead tr {
+    border-bottom: 1.5px solid #1a1a1a;
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+    padding: 8px 12px 10px 12px;
+    text-align: left;
+  }
+
+  td {
+    padding: 14px 12px;
+    font-size: 14px;
+    vertical-align: top;
+    border-bottom: 1px solid #e8e6e0;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  .region-name {
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .region-sub {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    background: #eef0f5;
+    color: #c0392b;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .size-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #444;
+  }
+
+  .port-badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    background: #1a1a1a;
+    color: #f8f7f4;
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+
+  .owned-by {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  .note {
+    font-size: 12px;
+    color: #888;
+    font-style: italic;
+    margin-top: 3px;
+  }
+
+  /* Color-coded address ranges */
+  .addr-arm    { background: #fef3e2; }
+  .addr-input  { background: #e8f5e9; }
+  .addr-weight { background: #e3f2fd; }
+  .addr-output { background: #fce4ec; }
+  .addr-ctrl   { background: #f3e5f5; }
+
+  .ctrl-detail table thead tr {
+    border-bottom: 1.5px solid #1a1a1a;
+  }
+
+  .direction-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: #555;
+    white-space: nowrap;
+  }
+
+  .desc-text {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  .reserved {
+    color: #aaa;
+    font-style: italic;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: #555;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  .bar-container {
+    width: 100%;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 32px;
+    border: 1px solid #ddd;
+  }
+
+  .bar-segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    color: rgba(0,0,0,0.6);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .footnote {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #ddd;
+    font-size: 12px;
+    color: #888;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>DN-ASIC · NetFPGA XC2VP50</h1>
+  <h2>Shared Address Space Map</h2>
+</div>
+
+<!-- Visual bar -->
+<div class="bar-container">
+  <div class="bar-segment addr-arm"    style="width:6.25%">0x00</div>
+  <div class="bar-segment addr-input"  style="width:62.5%">GPU Inputs (0x10–0xAF)</div>
+  <div class="bar-segment addr-weight" style="width:12.5%">Weights</div>
+  <div class="bar-segment addr-output" style="width:12.5%">Outputs</div>
+  <div class="bar-segment addr-ctrl"   style="width:6.25%">Ctrl</div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#fef3e2;border:1px solid #f0c060"></div>ARM Control</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9;border:1px solid #81c784"></div>GPU Inputs</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e3f2fd;border:1px solid #64b5f6"></div>GPU Weights</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fce4ec;border:1px solid #f48fb1"></div>GPU Outputs</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f3e5f5;border:1px solid #ce93d8"></div>Control Regs</div>
+</div>
+
+<!-- Main map table -->
+<div class="section">
+  <div class="section-title">Address Map — 256 × 64-bit words</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Region</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Size</th>
+        <th>Port</th>
+        <th>Owned By</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="addr-arm">
+        <td>
+          <div class="region-name">ARM Control</div>
+          <div class="region-sub">Ready flags &amp; ctrl scratch</div>
+        </td>
+        <td><code>0x00</code></td>
+        <td><code>0x0F</code></td>
+        <td><span class="size-badge">16 words</span></td>
+        <td><span class="port-badge">B</span></td>
+        <td class="owned-by">ARM MEM stage (read/write)</td>
+      </tr>
+      <tr class="addr-input">
+        <td>
+          <div class="region-name">GPU Inputs</div>
+          <div class="region-sub">Network packet payload (per inference)</div>
+        </td>
+        <td><code>0x10</code></td>
+        <td><code>0xAF</code></td>
+        <td><span class="size-badge">160 words</span></td>
+        <td><span class="port-badge">B</span></td>
+        <td class="owned-by">Packet FSM (write), GPU LW (read)</td>
+      </tr>
+      <tr class="addr-weight">
+        <td>
+          <div class="region-name">GPU Weights</div>
+          <div class="region-sub">Preloaded by host, fixed per session</div>
+        </td>
+        <td><code>0xB0</code></td>
+        <td><code>0xCF</code></td>
+        <td><span class="size-badge">32 words</span></td>
+        <td><span class="port-badge">B</span></td>
+        <td class="owned-by">Host Perl (write), GPU LW (read)</td>
+      </tr>
+      <tr class="addr-output">
+        <td>
+          <div class="region-name">GPU Outputs</div>
+          <div class="region-sub">Inference results written by GPU</div>
+        </td>
+        <td><code>0xD0</code></td>
+        <td><code>0xEF</code></td>
+        <td><span class="size-badge">32 words</span></td>
+        <td><span class="port-badge">B</span></td>
+        <td class="owned-by">GPU ST (write), ARM / host (read)</td>
+      </tr>
+      <tr class="addr-ctrl">
+        <td>
+          <div class="region-name">Control Registers</div>
+          <div class="region-sub">GPU dispatch, decoded by <code>gpu_control_interface_2</code></div>
+        </td>
+        <td><code>0xF0</code></td>
+        <td><code>0xFF</code></td>
+        <td><span class="size-badge">16 words</span></td>
+        <td><span class="port-badge">B</span></td>
+        <td class="owned-by">ARM write only</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ARM Control Detail -->
+<div class="section">
+  <div class="section-title">ARM Control Region Detail &mdash; <code>0x00–0x0F</code></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Address</th>
+        <th>Name</th>
+        <th>Direction</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>0x00</code></td>
+        <td><code>packet_word_count</code></td>
+        <td><span class="direction-badge">FSM → ARM</span></td>
+        <td class="desc-text">Number of payload words written by packet FSM on EOP. Zero = not ready. ARM polls this, clears after GPU dispatch.</td>
+      </tr>
+      <tr>
+        <td><code>0x01–0x0F</code></td>
+        <td class="reserved">—</td>
+        <td class="reserved">—</td>
+        <td class="desc-text reserved">Reserved for future ARM control registers</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- GPU Control Register Detail -->
+<div class="section ctrl-detail">
+  <div class="section-title">GPU Control Register Detail &mdash; <code>0xF0–0xFF</code></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Address</th>
+        <th>Name</th>
+        <th>Direction</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>0xF0</code></td>
+        <td><code>cfg_inst_addr</code></td>
+        <td><span class="direction-badge">ARM → GPU</span></td>
+        <td class="desc-text">Base address of GPU program in IMEM window</td>
+      </tr>
+      <tr>
+        <td><code>0xF1</code></td>
+        <td><code>cfg_length</code></td>
+        <td><span class="direction-badge">ARM → GPU</span></td>
+        <td class="desc-text">Number of instructions to fetch (max 64)</td>
+      </tr>
+      <tr>
+        <td><code>0xF2</code></td>
+        <td><code>gpu_dispatch</code></td>
+        <td><span class="direction-badge">ARM → GPU</span></td>
+        <td class="desc-text">Write any value to trigger FSM IDLE → EXECUTING</td>
+      </tr>
+      <tr>
+        <td><code>0xF3</code></td>
+        <td><code>arm_irq_ack</code></td>
+        <td><span class="direction-badge">ARM → GPU</span></td>
+        <td class="desc-text">Write any value to trigger FSM DONE → IDLE, clears <code>gpu_irq</code></td>
+      </tr>
+      <tr>
+        <td><code>0xF4–0xFF</code></td>
+        <td class="reserved">—</td>
+        <td class="reserved">—</td>
+        <td class="desc-text reserved">Reserved for future control registers</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Packet FSM note -->
+<div class="section">
+  <div class="section-title">Packet FSM Behavior</div>
+  <table>
+    <thead>
+      <tr>
+        <th>State</th>
+        <th>Trigger</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>IDLE</code></td>
+        <td><code>in_wr &amp;&amp; in_ctrl != 0</code></td>
+        <td class="desc-text">IOQ module header detected — skip word, move to CAPTURE</td>
+      </tr>
+      <tr>
+        <td><code>CAPTURE</code></td>
+        <td><code>in_ctrl == 0</code></td>
+        <td class="desc-text">Write <code>in_data</code> to BRAM at <code>0x10 + word_ptr</code>, increment pointer</td>
+      </tr>
+      <tr>
+        <td><code>EOP</code></td>
+        <td><code>in_ctrl != 0</code></td>
+        <td class="desc-text">Write <code>word_ptr</code> to <code>0x00</code> (packet_word_count), reset pointer, return to IDLE</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footnote">
+  DN-ASIC · EE533 · USC Viterbi · BRAM: 256 × 64-bit words on NetFPGA XC2VP50 (convertible_fifo / gpu_fifo_mem).
+  GPU IMEM loaded directly — no BRAM window required. Weights preloaded once per session via host Perl scripts.
+  Packet payload arrives via <code>nf2c3</code> (10.0.15.2) from node3 (10.0.15.3).
+</div>
+
+</body>
+</html>

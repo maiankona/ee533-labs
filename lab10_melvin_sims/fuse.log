@@ -1,0 +1,198 @@
+Determining compilation order of HDL files
+Analyzing Verilog file user_data_path.v
+WARNING:HDLCompiler:870 - "user_data_path.v" Line 166. Use of undefined macro
+   UDP_REG_ADDR_WIDTH
+WARNING:HDLCompiler:870 - "user_data_path.v" Line 167. Use of undefined macro
+   CPCI_NF2_DATA_WIDTH
+Analyzing Verilog file tb_udp_packet_user_data_path.v
+Analyzing Verilog file registerFile64_BRAM.v
+Analyzing Verilog file registerFile64BRAM.v
+Analyzing Verilog file pipeline_psuedoARM.v
+Analyzing Verilog file pipeline_backup.v
+Analyzing Verilog file modular_register_generator.v
+Analyzing Verilog file mem32bit512.v
+Analyzing Verilog file ifetch_pseduoARM.v
+Analyzing Verilog file ifetch.v
+Analyzing Verilog file ids.v
+Analyzing Verilog file idecode_pseudoARM.v
+Analyzing Verilog file hazard_unit.v
+Analyzing Verilog file gpu_fifo_mem.v
+Analyzing Verilog file gpu_control_interface_2.v
+Analyzing Verilog file fifo_states.v
+Analyzing Verilog file FIFO_72W256D.v
+Analyzing Verilog file dff.v
+Analyzing Verilog file decode.v
+Analyzing Verilog file bf16_unpack.v
+Analyzing Verilog file bf16_tensor_2.v
+Analyzing Verilog file bf16_fma.v
+Analyzing Verilog file alu_64bit_gpu.v
+Analyzing Verilog file alu_32bit.v
+Analyzing Verilog file C:/Xilinx/10.1/ISE/verilog/src/glbl.v
+Saving Verilog parse-tree work.user_data_path into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/user_data_path.sdb
+Saving Verilog parse-tree work.generic_regs into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/generic_regs.sdb
+Saving Verilog parse-tree work.input_arbiter into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/input_arbiter.sdb
+Saving Verilog parse-tree work.output_port_lookup into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/output_port_lookup.sdb
+Saving Verilog parse-tree work.output_queues into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/output_queues.sdb
+Saving Verilog parse-tree work.udp_reg_master into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/udp_reg_master.sdb
+Saving Verilog parse-tree work.tb_udp_packet_user_data_path into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/tb_udp_packet_user_data_path.s
+db
+Saving Verilog parse-tree work.registerFile64_BRAM into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/register@file64_@b@r@a@m.sdb
+Saving Verilog parse-tree work.registerFile64 into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/register@file64.sdb
+Saving Verilog parse-tree work.pipeline_pseudoARM into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/pipeline_pseudo@a@r@m.sdb
+Saving Verilog parse-tree work.pipeline_backup into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/pipeline_backup.sdb
+Saving Verilog parse-tree work.register_generate into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/register_generate.sdb
+Saving Verilog parse-tree work.mem32bit512 into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/mem32bit512.sdb
+Saving Verilog parse-tree work.ifetch_arm into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/ifetch_arm.sdb
+Saving Verilog parse-tree work.ifetch into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/ifetch.sdb
+Saving Verilog parse-tree work.ids into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/ids.sdb
+Saving Verilog parse-tree work.idecode into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/idecode.sdb
+Saving Verilog parse-tree work.hazard_unit into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/hazard_unit.sdb
+Saving Verilog parse-tree work.gpu_fifo_mem into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/gpu_fifo_mem.sdb
+Saving Verilog parse-tree work.gpu_control_interface_2 into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/gpu_control_interface_2.sdb
+Saving Verilog parse-tree work.convertible_fifo into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/convertible_fifo.sdb
+Saving Verilog parse-tree work.FIFO_72W256D into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/@f@i@f@o_72@w256@d.sdb
+Saving Verilog parse-tree work.dff_reset into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/dff_reset.sdb
+Saving Verilog parse-tree work.decode into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/decode.sdb
+Saving Verilog parse-tree work.bf16_unpack into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/bf16_unpack.sdb
+Saving Verilog parse-tree work.bf16_tensor_2 into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/bf16_tensor_2.sdb
+Saving Verilog parse-tree work.bf16_fma into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/bf16_fma.sdb
+Saving Verilog parse-tree work.alu_64bit into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/alu_64bit.sdb
+Saving Verilog parse-tree work.alu_32bit into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/alu_32bit.sdb
+Saving Verilog parse-tree work.glbl into
+c:/xilinx/10.1/ise/iseexamples/lab9_net/isim/work/glbl.sdb
+Starting static elaboration
+Restoring Verilog parse-tree xilinxcorelib_ver.BLKMEMSP_V6_2 from
+c:/xilinx/10.1/ise/verilog/hdp/nt/xilinxcorelib_ver/xilinxcorelib_ver.sdbl
+Restoring Verilog parse-tree unisims_ver.MULT18X18 from
+c:/xilinx/10.1/ise/verilog/hdp/nt/unisims_ver/unisims_ver.sdbl
+Restoring Verilog parse-tree xilinxcorelib_ver.BLKMEMDP_V6_3 from
+c:/xilinx/10.1/ise/verilog/hdp/nt/xilinxcorelib_ver/xilinxcorelib_ver.sdbl
+WARNING:HDLCompiler:189 - "tb_udp_packet_user_data_path.v" Line 272. Actual bit
+   length 23 differs from formal bit length 2 for port reg_addr
+WARNING:HDLCompiler:189 - "tb_udp_packet_user_data_path.v" Line 273. Actual bit
+   length 32 differs from formal bit length 2 for port reg_rd_data
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 308. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 309. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 315. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 316. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 348. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 349. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 355. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 356. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 386. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 387. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 393. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 394. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 467. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 468. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 474. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 475. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 514. Actual bit length 2
+   differs from formal bit length 23 for port core_reg_addr
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 516. Actual bit length 2
+   differs from formal bit length 32 for port core_reg_rd_data
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 517. Actual bit length 2
+   differs from formal bit length 32 for port core_reg_wr_data
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 524. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 525. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_out
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 534. Actual bit length 2
+   differs from formal bit length 23 for port reg_addr_in
+WARNING:HDLCompiler:189 - "user_data_path.v" Line 535. Actual bit length 2
+   differs from formal bit length 32 for port reg_data_in
+Completed static elaboration
+Fuse Memory Usage: 56164 Kb
+Fuse CPU Usage: 8218 ms
+Compiling module glbl
+Compiling module input_arbiter(DATA_WIDTH=64,CTRL...
+Compiling module output_port_lookup(DATA_WIDTH=64...
+Compiling module generic_regs(UDP_REG_SRC_WIDTH=2...
+Compiling module gpu_control_interface_2
+Compiling module dff_reset
+Compiling module register_generate(WIDTH=9)
+Compiling module BLKMEMSP_V6_2(c_addr_width=9,c_d...
+Compiling module mem32bit512
+Compiling module ifetch
+Compiling module register_generate(WIDTH=32)
+Compiling module registerFile64
+Compiling module decode
+Compiling module register_generate(WIDTH=280)
+Compiling module hazard_unit
+Compiling module alu_64bit
+Compiling module bf16_unpack
+Compiling module MULT18X18
+Compiling module bf16_fma
+Compiling module bf16_tensor_2
+Compiling module register_generate(WIDTH=202)
+Compiling module register_generate(WIDTH=72)
+Compiling module register_generate(WIDTH=70)
+Compiling module pipeline_backup
+Compiling module ifetch_arm
+Compiling module register_generate(WIDTH=43)
+Compiling module BLKMEMDP_V6_3(c_addra_width=6,c_...
+Compiling module registerFile64_BRAM
+Compiling module idecode
+Compiling module register_generate(WIDTH=104)
+Compiling module alu_32bit
+Compiling module register_generate(WIDTH=73)
+Compiling module register_generate(WIDTH=41)
+Compiling module pipeline_pseudoARM
+Compiling module BLKMEMDP_V6_3(c_addra_width=8,c_...
+Compiling module FIFO_72W256D
+Compiling module convertible_fifo
+Compiling module gpu_fifo_mem
+Compiling module ids(UDP_REG_SRC_WIDTH=2)
+Compiling module output_queues(DATA_WIDTH=64,CTRL...
+Compiling module udp_reg_master(UDP_REG_SRC_WIDTH...
+Compiling module user_data_path
+Compiling module tb_udp_packet_user_data_path
+Compiled 43 Verilog Units
+Built simulation executable tb_udp_packet_user_data_path_isim_beh.exe
+Fuse Memory Usage: 61864 Kb
+Fuse CPU Usage: 10984 ms

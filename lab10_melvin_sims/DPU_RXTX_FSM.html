@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DN-ASIC Streaming Inference Pipeline</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #f8f7f4;
+    color: #1a1a1a;
+    padding: 48px 32px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .header {
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #1a1a1a;
+  }
+
+  .header h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 8px;
+  }
+
+  .header h2 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .header p {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.6;
+    max-width: 640px;
+  }
+
+  .section {
+    margin-bottom: 48px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  /* Pipeline flow diagram */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 40px;
+    overflow-x: auto;
+  }
+
+  .pipe-stage {
+    flex: 1;
+    min-width: 160px;
+    background: white;
+    border: 1.5px solid #e0ddd8;
+    padding: 20px 16px;
+    position: relative;
+  }
+
+  .pipe-stage:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: #bbb;
+    z-index: 2;
+    background: #f8f7f4;
+    padding: 0 2px;
+  }
+
+  .pipe-stage.rx   { border-top: 3px solid #4caf50; }
+  .pipe-stage.arm  { border-top: 3px solid #ff9800; }
+  .pipe-stage.gpu  { border-top: 3px solid #2196f3; }
+  .pipe-stage.tx   { border-top: 3px solid #e91e63; }
+
+  .pipe-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .pipe-label.rx   { color: #4caf50; }
+  .pipe-label.arm  { color: #ff9800; }
+  .pipe-label.gpu  { color: #2196f3; }
+  .pipe-label.tx   { color: #e91e63; }
+
+  .pipe-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .pipe-loc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 10px;
+  }
+
+  .pipe-desc {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  /* Handshake sequence */
+  .sequence {
+    background: white;
+    border: 1.5px solid #e0ddd8;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .seq-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    border-bottom: 1px solid #f0ede8;
+    min-height: 52px;
+  }
+
+  .seq-row:last-child {
+    border-bottom: none;
+  }
+
+  .seq-actor {
+    padding: 14px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid #f0ede8;
+  }
+
+  .seq-actor.rx   { color: #4caf50; background: #f9fdf9; }
+  .seq-actor.arm  { color: #ff9800; background: #fffcf7; }
+  .seq-actor.gpu  { color: #2196f3; background: #f7fbff; }
+  .seq-actor.tx   { color: #e91e63; background: #fff7fa; }
+
+  .seq-content {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .seq-action {
+    font-size: 13px;
+    color: #1a1a1a;
+    line-height: 1.5;
+    flex: 1;
+  }
+
+  .seq-signal {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    background: #eef0f5;
+    color: #c0392b;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .seq-signal.green  { background: #e8f5e9; color: #2e7d32; }
+  .seq-signal.orange { background: #fff3e0; color: #e65100; }
+  .seq-signal.blue   { background: #e3f2fd; color: #0d47a1; }
+  .seq-signal.pink   { background: #fce4ec; color: #880e4f; }
+
+  /* Components table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border: 1.5px solid #e0ddd8;
+  }
+
+  thead tr {
+    border-bottom: 1.5px solid #1a1a1a;
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+    padding: 10px 16px;
+    text-align: left;
+  }
+
+  td {
+    padding: 14px 16px;
+    font-size: 13px;
+    vertical-align: top;
+    border-bottom: 1px solid #f0ede8;
+    line-height: 1.5;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    background: #eef0f5;
+    color: #c0392b;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .status-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+
+  .status-todo    { background: #fff3e0; color: #e65100; }
+  .status-done    { background: #e8f5e9; color: #2e7d32; }
+  .status-partial { background: #e3f2fd; color: #0d47a1; }
+
+  /* Constraint box */
+  .constraint-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .constraint-card {
+    background: white;
+    border: 1.5px solid #e0ddd8;
+    padding: 20px;
+  }
+
+  .constraint-card h4 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 12px;
+  }
+
+  .constraint-card ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .constraint-card li {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.4;
+    padding-left: 14px;
+    position: relative;
+  }
+
+  .constraint-card li::before {
+    content: '·';
+    position: absolute;
+    left: 0;
+    color: #bbb;
+  }
+
+  .footnote {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #ddd;
+    font-size: 12px;
+    color: #888;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>DN-ASIC · NetFPGA XC2VP50 · EE533</h1>
+  <h2>Streaming Inference Pipeline Plan</h2>
+  <p>Pipelined full-duplex architecture: input packets arrive continuously from nf7, inference runs on GPU, result packets stream back — all in hardware without host software intervention.</p>
+</div>
+
+<!-- Pipeline stages -->
+<div class="section">
+  <div class="section-title">Four-Stage Pipeline</div>
+  <div class="pipeline">
+    <div class="pipe-stage rx">
+      <div class="pipe-label rx">Stage 1</div>
+      <div class="pipe-name">Packet RX FSM</div>
+      <div class="pipe-loc">ids.v</div>
+      <div class="pipe-desc">Receives incoming packet on nf2c3, strips IOQ header, writes payload words to GPU Inputs region (0x10–0xAF). Asserts in_rdy=0 while GPU busy.</div>
+    </div>
+    <div class="pipe-stage arm">
+      <div class="pipe-label arm">Stage 2</div>
+      <div class="pipe-name">ARM Polling Loop</div>
+      <div class="pipe-loc">pipeline_pseudoARM</div>
+      <div class="pipe-desc">Polls packet_word_count at 0x00. On nonzero, dispatches GPU via STR to 0xF0–0xF2. Clears flag after dispatch.</div>
+    </div>
+    <div class="pipe-stage gpu">
+      <div class="pipe-label gpu">Stage 3</div>
+      <div class="pipe-name">GPU Inference</div>
+      <div class="pipe-loc">pipeline_backup</div>
+      <div class="pipe-desc">Runs BF16 tensor inference (VMAC + ReLU) on inputs from 0x10+. Writes outputs to 0xD0–0xEF. Asserts pipeline_done on completion.</div>
+    </div>
+    <div class="pipe-stage tx">
+      <div class="pipe-label tx">Stage 4</div>
+      <div class="pipe-name">Packet TX FSM</div>
+      <div class="pipe-loc">ids.v</div>
+      <div class="pipe-desc">Detects pipeline_done, reads outputs from 0xD0–0xEF, constructs NF2.1 packet, drives net_tx_data/valid back to nf7. Clears 0x00 to unblock RX.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Handshake sequence -->
+<div class="section">
+  <div class="section-title">Pipeline Handshake Sequence (Single Packet)</div>
+  <div class="sequence">
+    <div class="seq-row">
+      <div class="seq-actor rx">RX FSM</div>
+      <div class="seq-content">
+        <div class="seq-action">Packet arrives on <code>nf2c3</code> — detect IOQ header (<code>in_ctrl != 0</code>), skip it. Begin writing <code>in_data</code> words to BRAM starting at <code>0x10</code>.</div>
+      </div>
+    </div>
+    <div class="seq-row">
+      <div class="seq-actor rx">RX FSM</div>
+      <div class="seq-content">
+        <div class="seq-action">EOP detected (<code>in_ctrl != 0</code> again) — write word count to <code>0x00</code> (packet_word_count). Assert <code>in_rdy=0</code> to stall upstream.</div>
+        <span class="seq-signal green">packet_word_count ← N</span>
+      </div>
+    </div>
+    <div class="seq-row">
+      <div class="seq-actor arm">ARM</div>
+      <div class="seq-content">
+        <div class="seq-action">Polling loop detects <code>0x00 != 0</code>. Loads word count into R2. Writes <code>cfg_inst_addr</code>, <code>cfg_length</code>, <code>gpu_dispatch</code> to <code>0xF0–0xF2</code>.</div>
+        <span class="seq-signal orange">gpu_dispatch fired</span>
+      </div>
+    </div>
+    <div class="seq-row">
+      <div class="seq-actor gpu">GPU</div>
+      <div class="seq-content">
+        <div class="seq-action">Fetches instructions from IMEM, loads inputs via LW from <code>0x10+</code>, loads weights via LW from <code>0xB0+</code>, runs VMAC + ReLU, writes outputs via ST to <code>0xD0+</code>.</div>
+        <span class="seq-signal blue">pipeline_done ← 1</span>
+      </div>
+    </div>
+    <div class="seq-row">
+      <div class="seq-actor tx">TX FSM</div>
+      <div class="seq-content">
+        <div class="seq-action">Detects <code>pipeline_done</code>. Reads output words from <code>0xD0–0xEF</code>. Constructs NF2.1 packet (IOQ header + payload). Drives <code>net_tx_data/valid</code>.</div>
+        <span class="seq-signal pink">result packet → nf7</span>
+      </div>
+    </div>
+    <div class="seq-row">
+      <div class="seq-actor tx">TX FSM</div>
+      <div class="seq-content">
+        <div class="seq-action">Packet transmission complete. Clear <code>packet_word_count</code> at <code>0x00</code> to zero. Deassert <code>in_rdy=0</code> — RX FSM now ready for next packet.</div>
+        <span class="seq-signal green">packet_word_count ← 0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Implementation status -->
+<div class="section">
+  <div class="section-title">Implementation Status</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Location</th>
+        <th>What's needed</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Packet RX FSM</strong></td>
+        <td><code>ids.v</code></td>
+        <td>New FSM: IDLE → CAPTURE → EOP. Writes to BRAM via <code>mux_pl_*</code>. Drives <code>in_rdy</code>.</td>
+        <td><span class="status-badge status-todo">To Do</span></td>
+      </tr>
+      <tr>
+        <td><strong>ARM Polling Loop</strong></td>
+        <td><code>pipeline_pseudoARM</code> IMEM</td>
+        <td>Replace <code>B .</code> halt with poll loop. LDR from <code>0x00</code>, dispatch GPU on nonzero, clear flag.</td>
+        <td><span class="status-badge status-todo">To Do</span></td>
+      </tr>
+      <tr>
+        <td><strong>GPU Inference</strong></td>
+        <td><code>pipeline_backup</code></td>
+        <td>Update LW/ST addresses to new memory map (inputs at <code>0x10+</code>, weights at <code>0xB0+</code>, outputs at <code>0xD0+</code>).</td>
+        <td><span class="status-badge status-partial">Partial</span></td>
+      </tr>
+      <tr>
+        <td><strong>Packet TX FSM</strong></td>
+        <td><code>ids.v</code></td>
+        <td>New FSM: detects <code>pipeline_done</code>, reads BRAM outputs, constructs NF2.1 packet, drives <code>net_tx_data/valid</code>.</td>
+        <td><span class="status-badge status-todo">To Do</span></td>
+      </tr>
+      <tr>
+        <td><strong>BRAM Address Map</strong></td>
+        <td><code>gpu_fifo_mem</code></td>
+        <td>Remapped: ARM Ctrl <code>0x00–0x0F</code>, Inputs <code>0x10–0xAF</code>, Weights <code>0xB0–0xCF</code>, Outputs <code>0xD0–0xEF</code>, Ctrl <code>0xF0–0xFF</code>.</td>
+        <td><span class="status-badge status-done">Defined</span></td>
+      </tr>
+      <tr>
+        <td><strong>Network Path</strong></td>
+        <td><code>nf2c3</code></td>
+        <td>nf7 (10.0.15.3) ↔ nf8 (10.0.15.2) via <code>nf2c3</code>. iperf confirmed working. Packet format TBD.</td>
+        <td><span class="status-badge status-done">Confirmed</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Constraints -->
+<div class="section">
+  <div class="section-title">Design Constraints &amp; Decisions</div>
+  <div class="constraint-grid">
+    <div class="constraint-card">
+      <h4>Buffering Strategy</h4>
+      <ul>
+        <li>Single buffer — stall on busy (proof of concept)</li>
+        <li>RX asserts <code>in_rdy=0</code> while GPU running</li>
+        <li>nf7 must wait or buffer — controlled by us</li>
+        <li>Upgrade to ping-pong after PoC verified</li>
+      </ul>
+    </div>
+    <div class="constraint-card">
+      <h4>Data Format</h4>
+      <ul>
+        <li>BF16 packed as two values per 64-bit word</li>
+        <li>Inputs arrive in packet payload, fixed layout</li>
+        <li>Weights preloaded once by Perl host script</li>
+        <li>Output packet format: raw BF16 output words</li>
+      </ul>
+    </div>
+    <div class="constraint-card">
+      <h4>Timing</h4>
+      <ul>
+        <li>125 MHz datapath clock</li>
+        <li>2-2-1 ANN inference ≈ 100–200 cycles</li>
+        <li>Packet TX must complete before next RX</li>
+        <li>ARM dispatch overhead ≈ 25 cycles</li>
+      </ul>
+    </div>
+    <div class="constraint-card">
+      <h4>Open Questions</h4>
+      <ul>
+        <li>Result packet header format — sequence number?</li>
+        <li>Who drives <code>net_tx</code> — TX FSM or FIFO mode?</li>
+        <li>Error handling — what if GPU times out?</li>
+        <li>How does nf7 know result corresponds to input N?</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="footnote">
+  DN-ASIC · EE533 · USC Viterbi · NetFPGA XC2VP50 · Pipelined full-duplex streaming inference.
+  Network path confirmed: nf7 (node3, 10.0.15.3) ↔ nf8 (fpga, 10.0.15.2) via <code>nf2c3</code>.
+  Next step: implement Packet RX FSM in <code>ids.v</code>.
+</div>
+
+</body>
+</html>
