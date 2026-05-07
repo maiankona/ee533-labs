@@ -30,9 +30,13 @@ reg [63:0] rx_pl_wdata_next;
 // testbenches can observe completion without waiting on GPU.
 localparam RX_IDLE = 2'b00, RX_CAPTURE = 2'b01, RX_DONE = 2'b10; 
 
-wire SOP = in_wr && in_ctrl != 8'b00;                   // Start of Packet
-wire PAYLOAD = in_wr && in_ctrl == 8'b00;               // Denotes window of time when the payload is present
-wire EOP = in_wr && in_ctrl != 8'b00 && flag_payload;   // EOP
+// NetFPGA stream framing convention:
+// - SOP word: in_ctrl == 8'hFF
+// - payload words: in_ctrl == 8'h00
+// - EOP word: in_ctrl != 8'h00 and in_ctrl != 8'hFF (ctrl encodes valid bytes)
+wire SOP     = in_wr && (in_ctrl == 8'hFF);
+wire PAYLOAD = in_wr && (in_ctrl == 8'h00);
+wire EOP     = in_wr && (in_ctrl != 8'h00) && (in_ctrl != 8'hFF) && flag_payload;
 
 // State Memory
 always @(posedge clk) begin
