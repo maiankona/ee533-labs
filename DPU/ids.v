@@ -100,7 +100,6 @@ module ids
 
    reg  sw_cpu_prev;
    reg  cpu_ctrl_r;
-   //wire cpu_start_a;        // from input_type[5]
    wire cpu_start_b;        // from cpu_ctrl[0]
    wire cpu_start;
 
@@ -108,15 +107,12 @@ module ids
       if (reset) sw_cpu_prev <= 1'b0;
       else       sw_cpu_prev <= input_type[5];
    end
-   //assign cpu_start_a = input_type[5] && !sw_cpu_prev;
 
    always @(posedge clk) begin
       if (reset) cpu_ctrl_r <= 1'b0;
       else       cpu_ctrl_r <= cpu_ctrl[0];
    end
    assign cpu_start_b = cpu_ctrl[0] && !cpu_ctrl_r;
-
-   //assign cpu_start = cpu_start_a | cpu_start_b;
    assign cpu_start = cpu_start_b;
 
    // cpu_running: gates cpu_mem_we to ctrl unit until cpu_start fires
@@ -129,7 +125,6 @@ module ids
 
    // ----------------------------------------------------------------
    // ARM IMEM: input_type[6] = arm_imem_we, reuses address + imem SW regs
-   // (input_type[4] = read_req_imem, so ARM IMEM write moved to [6])
    // ----------------------------------------------------------------
    wire arm_write_to_imem  = input_type[6];
    wire [8:0]  arm_addr_imem_host = address[8:0];
@@ -152,7 +147,7 @@ module ids
    assign write_to_imem   = input_type[0];
    assign write_to_dmem   = input_type[1];
    assign read_req_dmem   = input_type[2];
-   assign read_req_imem   = input_type[4]; // note: same bit as arm_imem_we ? only one active at a time
+   assign read_req_imem   = input_type[4];
 
    assign addr_imem_host  = address[8:0];
    assign addr_dmem_host  = address[7:0];
@@ -170,21 +165,10 @@ module ids
       end
    end
 
-   // 64b views of SW DMEM write data and host readback
    wire [63:0] data_dmem_host = {dmem_in_hi, dmem_in_lo};
    wire [63:0] dmem_out       = {dmem_out_hi, dmem_out_lo};
 
    //------------------------- Register block ------------------------
-   // SW reg map (reg_addr[3:0]):
-   //   0 = input_type   [0]=write_to_imem [1]=write_to_dmem [2]=read_req_dmem
-   //                    [3]=gpu_start_sw  [4]=read_req_imem  [5]=cpu_start_sw
-   //                    [6]=arm_imem_we
-   //   1 = address
-   //   2 = imem
-   //   3 = dmem_in_lo
-   //   4 = dmem_in_hi
-   //   5 = cpu_ctrl     [0]=cpu_start rising-edge detect (doc37 path)
-
    generic_regs #(
       .UDP_REG_SRC_WIDTH  (UDP_REG_SRC_WIDTH),
       .TAG                (`IDS_BLOCK_ADDR),
@@ -243,20 +227,18 @@ module ids
 RX_FSM RX_FSM (
    .clk(clk),
    .reset(reset),
-   .in_data(in_data),                      // Data from Network
-   .in_ctrl(in_ctrl),                      // Ctrls from Network
-   .in_wr(in_wr),                          // Write enable from Network
-   .pipeline_done(pipeline_done),          // GPU informs it is finished and ready for next workload
-   .rx_pl_addr(rx_pl_addr),                // Payload address to FIFO
-   .rx_pl_wdata(rx_pl_wdata),              // Payload data to FIFO
-   .rx_pl_we(rx_pl_we),                    // Payload write enable
-   .rx_fsm_busy(rx_fsm_busy),              
-   .in_rdy(rx_in_rdy)                      // Pass to TX FSM (from DPU back to Network)
+   .in_data(in_data),
+   .in_ctrl(in_ctrl),
+   .in_wr(in_wr),
+   .pipeline_done(pipeline_done),
+   .rx_pl_addr(rx_pl_addr),
+   .rx_pl_wdata(rx_pl_wdata),
+   .rx_pl_we(rx_pl_we),
+   .rx_fsm_busy(rx_fsm_busy),
+   .in_rdy(rx_in_rdy)
 );
 
 // --------------------------- END NETWORK -----------------------------
-
-
 
    //------------------------- ARM + GPU control ---------------------
 
@@ -367,14 +349,6 @@ RX_FSM RX_FSM (
    wire        shared_port_busy     = gpu_mem_busy | host_dmem_occupies;
    assign      arm_mem_stall = cpu_needs_shared_mem & shared_port_busy;
 
-// Deprecated from old shared FIFO instantiation
-/*
-   assign mux_pl_addr  = gpu_mem_busy ? gpu_dmem_pipe_addr  : cpu_pipe_addr;
-   assign mux_pl_wdata = gpu_mem_busy ? gpu_dmem_pipe_wdata : cpu_pipe_wdata;
-   assign mux_pl_we    = gpu_mem_busy ? gpu_dmem_pipe_we    : cpu_pipe_we;
-   assign mux_pl_mr    = gpu_mem_busy ? gpu_dmem_pipe_mem_read : cpu_pipe_mem_read;
-*/
-
 wire rx_active = rx_pl_we;
 
 assign mux_pl_addr  = gpu_mem_busy ? gpu_dmem_pipe_addr     :
@@ -392,7 +366,7 @@ assign mux_pl_mr    = gpu_mem_busy ? gpu_dmem_pipe_mem_read :
 wire fifo_gpu_combined = fifo_gpu_mode_gpu | write_to_dmem | read_req_dmem
                         | read_req_dmem_d1
                         | cpu_fifo_req | cpu_pipe_we | cpu_pipe_mem_read 
-                        | gpu_mem_busy | rx_pl_we;   // ? add rx_pl_we
+                        | gpu_mem_busy | rx_pl_we;
 
    gpu_fifo_mem shared_fifo (
       .clk                (clk),
@@ -430,6 +404,46 @@ wire fifo_gpu_combined = fifo_gpu_mode_gpu | write_to_dmem | read_req_dmem
    assign data_out_dmem = shared_dmem_rdata;
 
    //------------------------- HW register capture -------------------
+   // +++ ILA ADDITION BELOW — only change from original ids.v +++
+   //
+   // ILA FIFO: 72-bit packet capture buffer
+   // Captures {in_ctrl[7:0], in_data[63:0]} on every in_wr cycle.
+   // This lets you see the ctrl byte for every word (SOP/payload/EOP).
+   //
+   // Read interface — pulse input_type[4] to pop one word:
+   //   DMEM_OUT_LO  = in_data[31:0]
+   //   DMEM_OUT_HI  = in_data[63:32]
+   //   IMEM_OUT     = {24'b0, in_ctrl[7:0]}   ctrl byte
+   //   TENSOR_OUT   = {21'b0, full, empty, depth[8:0]}
+   //
+   // NOTE: input_type[4] was previously read_req_imem.
+   // The ILA read and IMEM read now share this bit.
+   // Do not use both simultaneously.
+   // -----------------------------------------------------------------
+
+   wire [71:0] ila_data_out_72;
+   wire [8:0]  ila_depth;
+   wire        ila_empty, ila_full;
+   wire        ila_ren = input_type[4];   // pop one word from ILA FIFO
+   wire        ila_wen = in_wr;           // capture every incoming word
+
+   ila #(
+      .DATA_WIDTH (72),
+      .ADDR_WIDTH (8)
+   ) packet_capture (
+      .clk      (clk),
+      .reset    (reset),
+      .data_in  ({in_ctrl, in_data}),     // 72-bit: ctrl[71:64] data[63:0]
+      .wen      (ila_wen),
+      .ren      (ila_ren),
+      .data_out (ila_data_out_72),
+      .depth    (ila_depth),
+      .empty    (ila_empty),
+      .full     (ila_full)
+   );
+
+   wire [63:0] ila_captured_data = ila_data_out_72[63:0];
+   wire [7:0]  ila_captured_ctrl = ila_data_out_72[71:64];
 
    always @(posedge clk) begin
       if (reset) begin
@@ -442,14 +456,20 @@ wire fifo_gpu_combined = fifo_gpu_mode_gpu | write_to_dmem | read_req_dmem
             dmem_out_lo <= data_out_dmem[31:0];
             dmem_out_hi <= data_out_dmem[63:32];
          end
+         if (ila_ren) begin
+            dmem_out_lo <= ila_captured_data[31:0];
+            dmem_out_hi <= ila_captured_data[63:32];
+            imem_out    <= {24'b0, ila_captured_ctrl};
+         end
          if (read_req_imem_d1)
             imem_out <= data_out_imem;
-         tensor_out <= tensor_out_intercept[31:0];
+         tensor_out <= {21'b0, ila_full, ila_empty, ila_depth};
       end
    end
 
+   // +++ END ILA ADDITION +++
+
    //------------------------- Datapath ------------------------------
-   // Prioritize CPU packet transmission over pass-through traffic.
    assign net_tx_ready = out_rdy;
    assign out_data = net_tx_valid ? net_tx_data[63:0]  : in_data;
    assign out_ctrl = net_tx_valid ? net_tx_data[71:64] : in_ctrl;
