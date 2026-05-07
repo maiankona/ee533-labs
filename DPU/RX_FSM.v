@@ -22,7 +22,13 @@ reg [7:0] rx_pl_addr_next;
 reg [63:0] rx_pl_wdata_next;
 
 
-localparam RX_IDLE = 2'b00, RX_CAPTURE = 2'b01, RX_WAIT_GPU = 2'b10, RX_DONE = 2'b11; // FSM States
+// FSM States
+// NOTE: We intentionally do NOT gate capture on pipeline_done. The RX path must
+// be able to accept and write packets at any time.
+//
+// RX_DONE exists as a single-cycle "packet captured" marker so other logic /
+// testbenches can observe completion without waiting on GPU.
+localparam RX_IDLE = 2'b00, RX_CAPTURE = 2'b01, RX_DONE = 2'b10; 
 
 wire SOP = in_wr && in_ctrl != 8'b00;                   // Start of Packet
 wire PAYLOAD = in_wr && in_ctrl == 8'b00;               // Denotes window of time when the payload is present
@@ -52,9 +58,8 @@ always @(*) begin
     next_state = state;
     case (state)
         RX_IDLE:     if (SOP) next_state = RX_CAPTURE;
-        RX_CAPTURE:  if (EOP) next_state = RX_WAIT_GPU;
-        RX_WAIT_GPU: if (pipeline_done) next_state = RX_DONE;
-        RX_DONE:     next_state = RX_IDLE;                      // Stay in this state for 1x cycle, then go to idle
+        RX_CAPTURE:  if (EOP) next_state = RX_DONE;
+        RX_DONE:     next_state = RX_IDLE;
     endcase
 end
 
@@ -66,8 +71,8 @@ always @(*) begin
     rx_pl_wdata_next = rx_pl_wdata;
     rx_word_ptr_next = rx_word_ptr;
     flag_payload_next = flag_payload;
-    in_rdy           = 1'b1;
-    rx_fsm_busy = 1'b0;  
+    in_rdy           = 1'b1;   // never apply backpressure based on pipeline_done
+    rx_fsm_busy      = 1'b0;  
 
     case (state)
         RX_IDLE: begin
@@ -87,19 +92,12 @@ always @(*) begin
                 rx_pl_addr_next   = 8'h00;
                 rx_pl_wdata_next  = {56'h0, rx_word_ptr}; // Place packet_word_count into addr 0x00 at BRAM
                 flag_payload_next = 1'b0;                 // Reset payload flag
+                rx_word_ptr_next  = 8'h00;                // Ready for next packet immediately
             end
         end
 
-        RX_WAIT_GPU: begin
-            in_rdy = 1'b0;                                // Send backpressure while GPU is processing
-            rx_fsm_busy = 1'b1;                           // Set BUSY flag high
-        end
-
-        RX_DONE: begin                                    // Clear CPU's status register 0x00 to siganl ready for next MAC sequence
-            rx_pl_we_next    = 1'b1;
-            rx_pl_addr_next  = 8'h00;
-            rx_pl_wdata_next = 64'h0;
-            rx_word_ptr_next = 8'h00;
+        RX_DONE: begin
+            // Single-cycle completion marker. No backpressure, no additional writes.
         end
 
         default: ;
