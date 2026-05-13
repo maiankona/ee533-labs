@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nf:module xmlns:nf="http://www.NetFPGA.org/NF2_register_system" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.NetFPGA.org/NF2_register_system NF2_register_system.xsd ">
+	<nf:name>ids</nf:name>
+	<nf:prefix>ids</nf:prefix>
+	<nf:location>udp</nf:location>
+	<nf:description>Registers for IDS</nf:description>
+	<nf:blocksize>64</nf:blocksize>
+	<nf:registers>
+		<nf:register>
+			<nf:name>dmem_in_hi</nf:name>
+			<nf:description>SW reg 0x0: DMEM write data [63:32]</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>dmem_in_lo</nf:name>
+			<nf:description>SW reg 0x1: DMEM write data [31:0] (with dmem_in_hi on dmem write)</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>imem</nf:name>
+			<nf:description>SW reg 0x2: IMEM write data register</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>address</nf:name>
+			<nf:description>SW reg 0x3: [8:0] IMEM addr, [7:0] DMEM byte addr, [15:8] GPU length for SW start</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>input_type</nf:name>
+			<nf:description>SW reg 0x4 control bits: bit0 IMEM write, bit1 DMEM write, bit2 DMEM read, bit3 SW gpu_start pulse, bit4 IMEM read</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>cpu_ctrl</nf:name>
+			<nf:description>SW reg 0x5 CPU control; write bit0 0-&gt;1 to pulse ARM cpu_start (bits[31:1] reserved)</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>dmem_out_lo</nf:name>
+			<nf:description>DMEM read data [31:0] (64b line with dmem_out_hi)</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>dmem_out_hi</nf:name>
+			<nf:description>DMEM read data [63:32]</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>imem_out</nf:name>
+			<nf:description>IMEM read data</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>tensor_out</nf:name>
+			<nf:description>Captured tensor result from EX stage</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+	</nf:registers>
+</nf:module>
