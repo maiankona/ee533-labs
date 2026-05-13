@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nf:module xmlns:nf="http://www.NetFPGA.org/NF2_register_system" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.NetFPGA.org/NF2_register_system NF2_register_system.xsd ">
+	<nf:name>ids</nf:name>
+	<nf:prefix>ids</nf:prefix>
+	<nf:location>udp</nf:location>
+	<nf:description>Registers for IDS</nf:description>
+	<nf:blocksize>128</nf:blocksize>
+	<nf:registers>
+		<nf:register>
+			<nf:name>input_type</nf:name>
+			<nf:description>host injection for read/write</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>address</nf:name>
+			<nf:description>address input (8/9 bits for DMEM/IMEM)</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register>
+			<nf:name>imem</nf:name>
+			<nf:description>IMEM write register</nf:description>
+			<nf:type>generic_software32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>dmem</nf:name>
+			<nf:description>DMEM write register</nf:description>
+			<nf:type>generic_software32</nf:type> </nf:register>
+		<nf:register> <nf:name>dmem_out</nf:name>
+			<nf:description>DMEM Register read</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>gpu_upper</nf:name>
+			<nf:description>DMEM Register read, gpu 1</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>gpu_lower</nf:name>
+			<nf:description>DMEM Register read, gpu 2</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>result_check_upper</nf:name>
+			<nf:description>Register File read, gpu 1</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>result_check_lower</nf:name>
+			<nf:description>Register File read, gpu 2</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>cpu_store</nf:name>
+			<nf:description>check last store data for cpu</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>cpu_pc_thread0</nf:name>
+			<nf:description>cpu pc number</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>cpu_request</nf:name>
+			<nf:description>cpu loaded value from GPU</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>alu_zero</nf:name>
+			<nf:description>zerro flag on alu</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>packet_check_upper</nf:name>
+			<nf:description>FIFO read 1</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>packet_check_mid</nf:name>
+			<nf:description>FIFO read 2</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>packet_check_lower</nf:name>
+			<nf:description>FIFO read 3</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>packet_out_upper</nf:name>
+			<nf:description>FIFO tx read 1</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>packet_out_mid</nf:name>
+			<nf:description>FIFO tx read 2</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+		<nf:register> <nf:name>packet_out_lower</nf:name>
+			<nf:description>FIFO tx read 3</nf:description>
+			<nf:type>generic_hardware32</nf:type>
+		</nf:register>
+	</nf:registers>
+</nf:module>
