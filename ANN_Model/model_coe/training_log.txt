@@ -1,0 +1,65 @@
+Loading data ...
+  X shape      : (47196, 256)
+  Healthy  (0) : 7,035  (14.9%)
+  Infected (1) : 40,161  (85.1%)
+
+Train : 42,477  |  Val : 4,719
+
+Model  : MACArrayModel  (256 → 2)
+Params : 514  (2.01 KB FP32)
+
+=================================================================
+Training MAC Array Model ...
+=================================================================
+Epoch 000 | Loss: 0.4437 | Train: 84.64% | Val: 85.29%
+Epoch 020 | Loss: 0.2286 | Train: 88.78% | Val: 88.90%
+Epoch 040 | Loss: 0.1637 | Train: 93.99% | Val: 93.92%
+Epoch 060 | Loss: 0.1312 | Train: 95.73% | Val: 95.57%
+Epoch 080 | Loss: 0.1133 | Train: 96.33% | Val: 96.27%
+Epoch 099 | Loss: 0.1029 | Train: 96.60% | Val: 96.52%
+
+Training complete.
+Best val accuracy : 96.65%  (epoch 97)
+
+=================================================================
+Validation confusion matrix
+=================================================================
+                  Healthy    Infected
+  Actual Healthy    590        104        <- FP
+  Actual Infected   54         3971       <- FN (critical)
+  Precision   : 97.45%
+  Recall      : 98.66%
+  F1          : 0.9805
+
+=================================================================
+Extracting weights for FPGA BRAM export
+=================================================================
+  Weight shape : (2, 256)
+  Bias shape   : (2,)
+  Weight range : [-85.9476, 85.9533]
+  Saved weights_fp32.npy
+
+  Int8 quantization:
+    w_min = -85.947578  w_max = 85.953339
+    scale = (w - -85.947578) / 171.900909 * 255
+    quantized range : [0, 255]
+  Saved weights_int8.npy
+  Saved quant_params.txt
+
+  Packing 8 x int8 weights into 64-bit words ...
+  Writing 64 64-bit words to .coe ...
+  Saved multiplexdiagnosis_weights_64bit.coe
+  Total 64-bit words : 64
+  BRAM size required : 512 bytes  (0.50 KB)
+
+=================================================================
+  FPGA inference flow
+=================================================================
+  1. Encode patient reads to k-mer frequency vectors (256 floats)
+  2. Average all read vectors → one 256-element input vector
+  3. Load weight matrix from BRAM (2 x 256)
+  4. MAC: output = input_vector @ weights.T + bias
+  5. Argmax of 2-element output → 0=healthy  1=infected
+
+  Dequantize weights before MAC:
+    w = (bram_int8 / 255) * (85.953339 - (-85.947578)) + (-85.947578)

@@ -1,0 +1,2 @@
+// bf16 biases: bias[0] in low 16 bits, bias[1] in next 16 bits
+00000000003ED8BED8

@@ -1,0 +1,4 @@
+w_min  = -85.94757843017578
+w_max  = 85.95333862304688
+scale  = (w - w_min) / (w_max - w_min) * 255
+dequant = (int8_val / 255) * (w_max - w_min) + w_min

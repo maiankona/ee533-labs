@@ -1,0 +1,7 @@
+k                = 4
+reads_per_sample = 50
+SARS fractions   = [0.1, 0.3, 0.5, 0.6]
+normalization    = L1 frequency (per read)
+healthy sources  = human.fastq + 1000 Genomes
+0 = healthy
+1 = infected

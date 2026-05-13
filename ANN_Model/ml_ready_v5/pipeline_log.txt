@@ -1,0 +1,49 @@
+============================================================
+  Fixed pipeline v5
+  Fix 1: k-mer frequency normalization (removes read length effects)
+  Fix 2: diverse healthy training data (1000 Genomes added)
+============================================================
+  k=4  reads_per_sample=50  output=ml_ready_v5
+
+============================================================
+  Step 1 — Load and clean all sources
+============================================================
+  human.fastq: 406,890 reads loaded and cleaned
+  sars.fastq: 799,916 reads loaded and cleaned
+  NA12878.fastq.gz: 50,000 reads loaded and cleaned
+  NA19238.fastq.gz: 50,000 reads loaded and cleaned
+
+  Total healthy pool : 506,890 reads
+    human.fastq      : 406,890
+    1000 Genomes     : 100,000
+
+============================================================
+  Step 2 — Healthy samples (class 0)
+============================================================
+  Healthy samples : 10,137
+
+============================================================
+  Step 3 — Infected samples (class 1)
+============================================================
+  SARS 10% (5/50 reads/sample) : 9,042 samples
+  SARS 30% (15/50 reads/sample) : 11,625 samples
+  SARS 50% (25/50 reads/sample) : 16,275 samples
+  SARS 60% (30/50 reads/sample) : 20,344 samples
+
+  Total infected : 57,286
+
+============================================================
+  Step 4 — Combine, shuffle, split 70/30
+============================================================
+  Total  : 67,423
+  Class 0 (healthy)  : 10,137  (15.0%)
+  Class 1 (infected) : 57,286  (85.0%)
+
+  Train : 47,196  (healthy=7,035, infected=40,161)
+  Test  : 20,227  (healthy=3,102, infected=17,125)
+
+  Sanity checks passed.
+
+============================================================
+  Step 5 — Saving to Drive
+============================================================

@@ -1,0 +1,90 @@
+Loading data ...
+  X shape      : (427890, 256)
+  y shape      : (427890,)
+  Healthy  (0) : 418,114  (97.7%)
+  Infected (1) : 9,776  (2.3%)
+
+Train samples : 385,101
+Val   samples : 42,789
+
+Model parameters : 41,666
+  FP32 size      : 162.8 KB
+  BF16 size      : 81.4 KB
+
+===========================================================================
+  Epoch    Train Loss     Train Acc     Val Loss       Val Acc      Note
+  ------------------------------------------------------------------------
+  1        0.0210         99.05         0.0003         100.00       best
+  2        0.0020         99.96         0.0005         100.00       
+  3        0.0011         99.98         0.0001         100.00       best
+  4        0.0002         100.00        0.0000         100.00       best
+  5        0.0001         100.00        0.0000         100.00       best
+  6        0.0008         99.98         0.0000         100.00       best
+  7        0.0005         100.00        0.0018         99.97        
+  8        0.0023         99.96         0.0000         100.00       
+  9        0.0000         100.00        0.0000         100.00       best
+  10       0.0001         100.00        0.0000         100.00       best
+  11       0.0001         100.00        0.0000         100.00       best
+  12       0.0003         100.00        0.0000         100.00       best
+  13       0.0000         100.00        0.0000         100.00       best
+  14       0.0000         100.00        0.0000         100.00       
+  15       0.0002         100.00        0.0000         100.00       
+  16       0.0004         100.00        0.0000         100.00       
+  17       0.0007         100.00        0.0000         100.00       
+  18       0.0003         99.99         0.0000         100.00       
+
+  Early stop at epoch 18 (no improvement for 5 epochs)
+
+  Best val accuracy : 100.00%  (epoch 13)
+  Best val loss     : 0.0000
+
+===========================================================================
+  Diagnosis
+===========================================================================
+  WARNING: 100% val accuracy is unusual for biological data.
+  Possible causes:
+  1. Data leakage — same reads appear in both train and val sets.
+  2. Pipeline artefact — model detecting read length or format
+     differences introduced during mixing, not SARS biology.
+  3. Genuine signal — SARS and human k-mers are very different
+     at k=4, so near-perfect separation is possible on clean data.
+  Action: run on a completely held-out test FASTQ to confirm.
+
+===========================================================================
+  Evaluation on validation set
+===========================================================================
+
+  Confusion matrix:
+                    Predicted
+                  Healthy    Infected
+  Actual Healthy    41808      0          <- FP = false alarms
+  Actual Infected   0          981        <- FN = missed cases (critical)
+
+  Metrics:
+  Precision   : 100.00%
+  Recall      : 100.00%
+  Specificity : 100.00%
+  F1 Score    : 1.0000
+
+  Zero missed infections (FN=0).
+  Confirm on a held-out test file before trusting this result.
+
+===========================================================================
+  Saving checkpoints
+===========================================================================
+  Saved model_fp32.pt
+
+  BF16 weights (saved as int16 raw bits):
+  Name                   Shape            Size
+  ----------------------------------------------------
+  layer1_weight          [128, 256]       64.00 KB
+  layer1_bias            [128]            0.25 KB
+  layer2_weight          [64, 128]        16.00 KB
+  layer2_bias            [64]             0.12 KB
+  layer3_weight          [2, 64]          0.25 KB
+  layer3_bias            [2]              0.00 KB
+
+  Total BF16 : 80.63 KB
+  Total FP32 : 161.26 KB
+
+  Saved model_bf16.pt
